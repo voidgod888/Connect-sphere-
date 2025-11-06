@@ -3,6 +3,8 @@
  * Handles adaptive bitrate streaming, bandwidth monitoring, and quality adjustments
  */
 
+import { isMobileDevice } from '../utils';
+
 export type ConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor';
 export type QualityPreset = 'auto' | 'high' | 'medium' | 'low';
 
@@ -276,10 +278,7 @@ class ConnectionOptimizationService {
    * Get recommended quality settings based on device
    */
   getDeviceOptimizedConstraints(): MediaTrackConstraints {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    ) || window.innerWidth <= 768;
-
+    const isMobile = isMobileDevice();
     const isLowEnd = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
 
     if (isMobile || isLowEnd) {
