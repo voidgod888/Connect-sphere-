@@ -6,6 +6,8 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { yoloService } from './services/yoloService';
+import { apiService } from './services/api';
+import { socketService } from './services/socketService';
 import { PARTNER_VIDEOS } from './constants';
 
 const App: React.FC = () => {
@@ -25,8 +27,10 @@ const App: React.FC = () => {
   
   // Partner & Moderation State
   const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
+  const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
   const [blockedPartners, setBlockedPartners] = useState<string[]>([]);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -37,6 +41,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     yoloService.loadModel().then(() => setIsModelLoading(false));
+    
+    // Check for existing session
+    const checkSession = async () => {
+      try {
+        const user = await apiService.verifySession();
+        setUser(user);
+        setAuthState('authenticated');
+      } catch (error) {
+        // No valid session
+        apiService.clearToken();
+      }
+    };
+    
+    checkSession();
   }, []);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
@@ -50,21 +68,69 @@ const App: React.FC = () => {
     verificationTimeoutRef.current = null;
   }, []);
   
-  const handleLogin = () => {
-    // This is a simulation of a Google Sign-In
-    setUser({ id: `user_${Date.now()}`, name: 'Demo User', email: 'demo.user@example.com' });
-    setAuthState('authenticated');
+  const stopChat = useCallback((isLoggingOut = false) => {
+    setChatState('idle');
+    stopMediaTracks(localStreamRef.current);
+    localStreamRef.current = null;
+    setLocalStream(null);
+    setRemoteStream(null);
+    if (!isLoggingOut) setSettings(null);
+    cleanupVerification();
+    setVerificationStatus('idle');
+    setMessages([]);
+    setCurrentPartner(null);
+    setCurrentMatchId(null);
+    
+    // Leave queue and end match if exists
+    socketService.leaveQueue();
+    if (currentMatchId) {
+      socketService.endMatch(currentMatchId);
+    }
+    
+    if (partnerVideoElementRef.current) {
+        partnerVideoElementRef.current.pause();
+        partnerVideoElementRef.current.src = '';
+    }
+  }, [cleanupVerification, currentMatchId]);
+
+  const handleLogin = async () => {
+    try {
+      // Use mock authentication for now (can be updated to use Google OAuth)
+      const response = await apiService.authMock(
+        'demo.user@example.com',
+        'Demo User',
+        'male',
+        'Global'
+      );
+      setUser(response.user);
+      setAuthState('authenticated');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Failed to login. Please try again.');
+    }
   };
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     if (chatState !== 'idle') {
-      // Use a function form of stopChat if it's not already wrapped in useCallback
-      stopChat(true); // Pass a flag to indicate logout
+      stopChat(true);
     }
+    
+    // Disconnect socket
+    socketService.disconnect();
+    setIsSocketConnected(false);
+    
+    // Logout from backend
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
     setUser(null);
     setAuthState('unauthenticated');
-    setBlockedPartners([]); // Clear block list on logout
-  }, [chatState]);
+    setBlockedPartners([]);
+    setCurrentMatchId(null);
+  }, [chatState, stopChat]);
 
 
   const selectNextPartner = useCallback(() => {
@@ -89,25 +155,37 @@ const App: React.FC = () => {
 
 
   const findNext = useCallback(() => {
+    if (!isSocketConnected || !user || !settings) {
+      setError("Not connected to server. Please try again.");
+      return;
+    }
+
     cleanupVerification();
     setVerificationStatus('idle');
     setChatState('searching');
     setRemoteStream(null);
     setMessages([]);
     setCurrentPartner(null);
+    setCurrentMatchId(null);
 
-    const nextPartner = selectNextPartner();
-    if (!nextPartner) {
-      setError("No available partners to connect with at this time. Please try again later.");
-      setChatState('idle');
-      return;
-    }
-
-    setTimeout(() => {
-      setCurrentPartner(nextPartner);
-      setChatState('connected');
-    }, 2000);
-  }, [cleanupVerification, selectNextPartner]);
+    // Leave previous queue and join new one
+    socketService.leaveQueue();
+    socketService.joinQueue(
+      settings.preference,
+      { identity: settings.identity, country: settings.country },
+      (response) => {
+        if (response.error) {
+          setError(response.error);
+          setChatState('idle');
+        } else if (response.matched) {
+          // Match found - will be handled by socket event
+        } else {
+          // Still waiting for match
+          console.log('Waiting for match...', response);
+        }
+      }
+    );
+  }, [cleanupVerification, isSocketConnected, user, settings]);
 
 
   useEffect(() => {
@@ -155,6 +233,27 @@ const App: React.FC = () => {
     }
 
     try {
+      // Connect to socket if not already connected
+      if (!isSocketConnected) {
+        try {
+          await socketService.connect();
+          setIsSocketConnected(true);
+        } catch (socketError) {
+          console.error('Socket connection error:', socketError);
+          setError('Failed to connect to server. Please check your connection.');
+          setChatState('idle');
+          return;
+        }
+      }
+
+      // Update user settings on backend
+      try {
+        await apiService.updateUserSettings(newSettings.identity, newSettings.country);
+      } catch (apiError) {
+        console.error('Failed to update user settings:', apiError);
+        // Continue anyway
+      }
+      
       // --- OPTIMIZATION: Request higher quality video ---
       const videoConstraints: MediaTrackConstraints = {
         width: { ideal: 1280 },
@@ -178,50 +277,88 @@ const App: React.FC = () => {
       setError(message);
       setChatState('idle');
     }
-  }, [isModelLoading, findNext]);
-  
-  const stopChat = useCallback((isLoggingOut = false) => {
-    setChatState('idle');
-    stopMediaTracks(localStreamRef.current);
-    localStreamRef.current = null;
-    setLocalStream(null);
-    setRemoteStream(null);
-    if (!isLoggingOut) setSettings(null);
-    cleanupVerification();
-    setVerificationStatus('idle');
-    setMessages([]);
-    setCurrentPartner(null);
-    if (partnerVideoElementRef.current) {
-        partnerVideoElementRef.current.pause();
-        partnerVideoElementRef.current.src = '';
-    }
-  }, [cleanupVerification]);
+  }, [isModelLoading, findNext, isSocketConnected]);
 
   const handleReport = () => {
-    if (!currentPartner) return;
-    setBlockedPartners(prev => [...new Set([...prev, currentPartner.id])]); // Avoid duplicates
-    setReportMessage('Partner has been reported and blocked for this session.');
-    setTimeout(() => setReportMessage(null), 3500);
-    findNext();
+    if (!currentPartner || !currentMatchId) return;
+    
+    socketService.reportUser(
+      currentPartner.id,
+      'User reported',
+      currentMatchId,
+      (response) => {
+        if (response.error) {
+          console.error('Report error:', response.error);
+        } else {
+          setBlockedPartners(prev => [...new Set([...prev, currentPartner!.id])]);
+          setReportMessage('Partner has been reported and blocked.');
+          setTimeout(() => setReportMessage(null), 3500);
+          findNext();
+        }
+      }
+    );
   };
   
   const handleSendMessage = (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !currentMatchId) return;
 
     const userMessage: ChatMessage = { id: `user-${Date.now()}`, text, sender: 'user' };
     setMessages(prev => [...prev, userMessage]);
 
-    setTimeout(() => {
-      const replies = ["That's interesting!", "Cool.", "I see.", "Tell me more.", "Haha, nice!", "Really? Wow."];
-      const partnerMessage: ChatMessage = {
-        id: `partner-${Date.now()}`,
-        text: replies[Math.floor(Math.random() * replies.length)],
-        sender: 'partner',
-      };
-      setMessages(prev => [...prev, partnerMessage]);
-    }, 1500 + Math.random() * 1000);
+    socketService.sendMessage(currentMatchId, text, (response) => {
+      if (response.error) {
+        console.error('Send message error:', response.error);
+      }
+    });
   };
   
+  // Socket event listeners
+  useEffect(() => {
+    if (!isSocketConnected) return;
+
+    const handleMatchFound = (event: { matchId: string; partner: { id: string; name: string } }) => {
+      setCurrentMatchId(event.matchId);
+      setCurrentPartner({ id: event.partner.id, videoUrl: '' }); // Partner will be from real video stream
+      setChatState('connected');
+      setVerificationStatus('verifying');
+      
+      // For now, simulate partner video with sample videos
+      // In production, this would be a real WebRTC stream
+      const availablePartners = PARTNER_VIDEOS.filter(url => !blockedPartners.includes(url));
+      if (availablePartners.length > 0) {
+        const randomUrl = availablePartners[Math.floor(Math.random() * availablePartners.length)];
+        setCurrentPartner({ id: event.partner.id, videoUrl: randomUrl });
+      }
+    };
+
+    const handleNewMessage = (event: { id: string; text: string; sender: string; createdAt: string }) => {
+      const chatMessage: ChatMessage = {
+        id: event.id,
+        text: event.text,
+        sender: event.sender === 'partner' ? 'partner' : 'user'
+      };
+      setMessages(prev => [...prev, chatMessage]);
+    };
+
+    const handleMatchEnded = () => {
+      setChatState('idle');
+      setCurrentPartner(null);
+      setCurrentMatchId(null);
+      setMessages([]);
+      cleanupVerification();
+    };
+
+    socketService.onMatchFound(handleMatchFound);
+    socketService.onMessage(handleNewMessage);
+    socketService.onMatchEnded(handleMatchEnded);
+
+    return () => {
+      socketService.offMatchFound(handleMatchFound);
+      socketService.offMessage(handleNewMessage);
+      socketService.offMatchEnded(handleMatchEnded);
+    };
+  }, [isSocketConnected, blockedPartners, cleanupVerification]);
+
   useEffect(() => {
     if (chatState === 'connected' && remoteStream && settings?.preference !== PartnerPreference.Everyone) {
       setVerificationStatus('verifying');
