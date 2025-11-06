@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Mic, MicOff, Video, VideoOff, SkipForward, PhoneOff, Flag } from 'lucide-react';
 
 interface ControlsProps {
@@ -18,16 +18,37 @@ const ControlButton: React.FC<{
   children: React.ReactNode;
   className?: string;
   ariaLabel: string;
-}> = ({ onClick, disabled = false, children, className = '', ariaLabel }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    aria-label={ariaLabel}
-    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 ${className}`}
-  >
-    {children}
-  </button>
-);
+  variant?: 'primary' | 'danger' | 'warning' | 'default';
+}> = ({ onClick, disabled = false, children, className = '', ariaLabel, variant = 'default' }) => {
+  const [isPressed, setIsPressed] = useState(false);
+
+  const baseClasses = 'w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
+  
+  const variantClasses = {
+    default: 'bg-gray-700/90 text-white hover:bg-gray-600 focus:ring-gray-500',
+    primary: 'bg-blue-600 text-white hover:bg-blue-600 focus:ring-blue-500',
+    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+    warning: 'bg-gray-700/90 text-white hover:bg-yellow-600 focus:ring-yellow-500',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onMouseDown={() => setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+      onMouseLeave={() => setIsPressed(false)}
+      className={`${baseClasses} ${variantClasses[variant]} ${className} ${
+        !disabled && !isPressed ? 'hover:scale-110 active:scale-95' : ''
+      } ${isPressed ? 'scale-90' : ''} shadow-lg hover:shadow-xl`}
+    >
+      <div className="transition-transform duration-200">
+        {children}
+      </div>
+    </button>
+  );
+};
 
 export const Controls: React.FC<ControlsProps> = ({
   onNext,
@@ -39,16 +60,12 @@ export const Controls: React.FC<ControlsProps> = ({
   isCameraOff,
   isNextDisabled,
 }) => {
-  // Fix: Removed unused `isChatActive` variable that was causing reference errors
-  // because `chatState` and `verificationStatus` are not props of this component.
-  // The `isNextDisabled` prop is used for disabling controls.
-
   return (
-    <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/30 backdrop-blur-sm p-2 rounded-full">
+    <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
       <ControlButton
         onClick={onToggleMute}
         ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-        className={isMuted ? 'bg-red-600 text-white focus:ring-red-500' : 'bg-gray-700/80 text-white hover:bg-gray-600 focus:ring-gray-500'}
+        variant={isMuted ? 'danger' : 'default'}
       >
         {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
       </ControlButton>
@@ -56,7 +73,7 @@ export const Controls: React.FC<ControlsProps> = ({
       <ControlButton
         onClick={onToggleCamera}
         ariaLabel={isCameraOff ? 'Turn camera on' : 'Turn camera off'}
-        className={isCameraOff ? 'bg-red-600 text-white focus:ring-red-500' : 'bg-gray-700/80 text-white hover:bg-gray-600 focus:ring-gray-500'}
+        variant={isCameraOff ? 'danger' : 'default'}
       >
         {isCameraOff ? <VideoOff size={24} /> : <Video size={24} />}
       </ControlButton>
@@ -64,7 +81,7 @@ export const Controls: React.FC<ControlsProps> = ({
       <ControlButton
         onClick={onStop}
         ariaLabel="Stop chat"
-        className="bg-red-600 text-white focus:ring-red-500"
+        variant="danger"
       >
         <PhoneOff size={24} />
       </ControlButton>
@@ -73,15 +90,16 @@ export const Controls: React.FC<ControlsProps> = ({
         onClick={onNext}
         disabled={isNextDisabled}
         ariaLabel="Find next partner"
-        className="bg-blue-600 text-white focus:ring-blue-500"
+        variant="primary"
       >
         <SkipForward size={24} />
       </ControlButton>
-       <ControlButton
+      
+      <ControlButton
         onClick={onReport}
         disabled={isNextDisabled}
         ariaLabel="Report user"
-        className="bg-gray-700/80 text-white hover:bg-yellow-600 focus:ring-yellow-500"
+        variant="warning"
       >
         <Flag size={24} />
       </ControlButton>

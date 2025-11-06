@@ -5,6 +5,7 @@ import { PartnerPreference } from './types';
 import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { LoginScreen } from './components/LoginScreen';
+import { ToastContainer, Toast, ToastType } from './components/Toast';
 import { yoloService } from './services/yoloService';
 import { apiService } from './services/api';
 import { socketService } from './services/socketService';
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [blockedPartners, setBlockedPartners] = useState<string[]>([]);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -39,8 +41,20 @@ const App: React.FC = () => {
   const verificationIntervalRef = useRef<number | null>(null);
   const verificationTimeoutRef = useRef<number | null>(null);
 
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
   useEffect(() => {
-    yoloService.loadModel().then(() => setIsModelLoading(false));
+    yoloService.loadModel().then(() => {
+      setIsModelLoading(false);
+      showToast('Model loaded successfully', 'success');
+    });
     
     // Check for existing session
     const checkSession = async () => {
@@ -48,6 +62,7 @@ const App: React.FC = () => {
         const user = await apiService.verifySession();
         setUser(user);
         setAuthState('authenticated');
+        showToast('Welcome back!', 'success');
       } catch (error) {
         // No valid session
         apiService.clearToken();
@@ -55,7 +70,7 @@ const App: React.FC = () => {
     };
     
     checkSession();
-  }, []);
+  }, [showToast]);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach(track => track.stop());
@@ -104,9 +119,12 @@ const App: React.FC = () => {
       );
       setUser(response.user);
       setAuthState('authenticated');
+      showToast('Successfully logged in!', 'success');
     } catch (error) {
       console.error('Login error:', error);
-      setError('Failed to login. Please try again.');
+      const errorMsg = 'Failed to login. Please try again.';
+      setError(errorMsg);
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -130,7 +148,8 @@ const App: React.FC = () => {
     setAuthState('unauthenticated');
     setBlockedPartners([]);
     setCurrentMatchId(null);
-  }, [chatState, stopChat]);
+    showToast('Logged out successfully', 'info');
+  }, [chatState, stopChat, showToast]);
 
 
   const selectNextPartner = useCallback(() => {
@@ -177,15 +196,18 @@ const App: React.FC = () => {
         if (response.error) {
           setError(response.error);
           setChatState('idle');
+          showToast(response.error, 'error');
         } else if (response.matched) {
           // Match found - will be handled by socket event
+          showToast('Match found!', 'success');
         } else {
           // Still waiting for match
           console.log('Waiting for match...', response);
+          showToast('Searching for a partner...', 'info', 2000);
         }
       }
     );
-  }, [cleanupVerification, isSocketConnected, user, settings]);
+  }, [cleanupVerification, isSocketConnected, user, settings, showToast]);
 
 
   useEffect(() => {
@@ -292,6 +314,7 @@ const App: React.FC = () => {
         } else {
           setBlockedPartners(prev => [...new Set([...prev, currentPartner!.id])]);
           setReportMessage('Partner has been reported and blocked.');
+          showToast('User reported and blocked successfully', 'success');
           setTimeout(() => setReportMessage(null), 3500);
           findNext();
         }
@@ -401,28 +424,33 @@ const App: React.FC = () => {
       {/* Hidden video element to generate partner streams */}
       <video ref={partnerVideoElementRef} style={{ display: 'none' }} crossOrigin="anonymous" playsInline loop muted />
       
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      
       {authState === 'unauthenticated' ? (
-        <LoginScreen onLogin={handleLogin} />
+        <div className="animate-fadeIn">
+          <LoginScreen onLogin={handleLogin} />
+        </div>
       ) : (
         <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm z-20">
+          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
             <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white tracking-wider">
+              <h1 className="text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
                 Connect<span className="text-blue-400">Sphere</span>
               </h1>
               {chatState !== 'idle' ? (
                  <button
                   onClick={() => stopChat(false)}
-                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
                 >
                   Stop
                 </button>
               ) : (
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-300">Welcome, {user?.name}!</span>
+                <div className="flex items-center gap-4 animate-fadeInRight">
+                  <span className="text-gray-300 font-medium">Welcome, {user?.name}!</span>
                   <button
                     onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30"
                   >
                     Logout
                   </button>
@@ -431,7 +459,7 @@ const App: React.FC = () => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden animate-fadeIn">
             {chatState === 'idle' ? (
               <SettingsScreen onStart={startChat} error={error} />
             ) : (

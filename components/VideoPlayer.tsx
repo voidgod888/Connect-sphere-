@@ -14,22 +14,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
   const videoRef = playerRef || internalRef;
   const [volume, setVolume] = useState(1);
   const [isVolumeMuted, setIsVolumeMuted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      // Add fade-in animation when stream starts
+      videoRef.current.classList.add('animate-fadeIn');
     }
   }, [stream, videoRef]);
 
   useEffect(() => {
     if (videoRef.current) {
-      // Don't control the `muted` attribute here, as it's handled by the parent
-      // for autoplay and local stream echo cancellation.
-      // Instead, control volume directly.
       videoRef.current.volume = isVolumeMuted ? 0 : volume;
     }
   }, [volume, isVolumeMuted, videoRef, stream]);
-
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
@@ -44,16 +43,38 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
   };
 
   const getVolumeIcon = () => {
-    if (isVolumeMuted || volume === 0) return <VolumeX size={20} className="w-5 h-5"/>;
-    if (volume < 0.5) return <Volume1 size={20} className="w-5 h-5"/>;
-    return <Volume2 size={20} className="w-5 h-5"/>;
+    if (isVolumeMuted || volume === 0) return <VolumeX size={20} className="w-5 h-5 transition-transform duration-200 hover:scale-110"/>;
+    if (volume < 0.5) return <Volume1 size={20} className="w-5 h-5 transition-transform duration-200 hover:scale-110"/>;
+    return <Volume2 size={20} className="w-5 h-5 transition-transform duration-200 hover:scale-110"/>;
   }
 
   return (
-    <div className="group w-full h-full bg-black flex items-center justify-center relative">
+    <div 
+      className="group w-full h-full bg-black flex items-center justify-center relative overflow-hidden animate-fadeIn"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
        {isCameraOff ? (
-        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <div className="w-full h-full flex items-center justify-center bg-gray-900 animate-fadeIn">
+          <div className="text-center">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="64" 
+              height="64" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="text-gray-500 mx-auto animate-pulse"
+            >
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <circle cx="12" cy="13" r="3"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+            <p className="text-gray-500 mt-2 text-sm">Camera Off</p>
+          </div>
         </div>
       ) : (
         <video
@@ -61,12 +82,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
           autoPlay
           playsInline
           muted={muted}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       )}
        {showVolumeControl && !isCameraOff && stream && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-48 bg-gray-900/50 backdrop-blur-sm rounded-full p-2 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
-          <button onClick={toggleVolumeMute} className="text-white hover:text-blue-400 transition-colors pl-2">
+        <div 
+          className={`absolute bottom-4 left-1/2 -translate-x-1/2 w-56 bg-gray-900/80 backdrop-blur-md rounded-full p-3 flex items-center gap-3 shadow-xl border border-gray-700/50 transition-all duration-300 z-30 ${
+            isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+          }`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <button 
+            onClick={toggleVolumeMute} 
+            className="text-white hover:text-blue-400 transition-all duration-200 transform hover:scale-110 active:scale-95 pl-2"
+          >
             {getVolumeIcon()}
           </button>
           <input
@@ -76,9 +106,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
             step="0.01"
             value={isVolumeMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
+            style={{
+              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(isVolumeMuted ? 0 : volume) * 100}%, #374151 ${(isVolumeMuted ? 0 : volume) * 100}%, #374151 100%)`
+            }}
             aria-label="Volume"
           />
+          <span className="text-white text-xs font-medium w-8 text-right">
+            {Math.round((isVolumeMuted ? 0 : volume) * 100)}%
+          </span>
         </div>
       )}
     </div>
