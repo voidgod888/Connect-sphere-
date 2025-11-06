@@ -1,11 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { UserSettings, ChatState, VerificationStatus, ChatMessage, AuthState, User, Partner } from './types';
+import type { UserSettings, ChatState, VerificationStatus, ChatMessage, AuthState, User, Partner, ConnectionQuality, Theme } from './types';
 import { PartnerPreference } from './types';
 import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { ToastContainer, Toast, ToastType } from './components/Toast';
+import { ThemeToggle } from './components/ThemeToggle';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { yoloService } from './services/yoloService';
 import { apiService } from './services/api';
 import { socketService } from './services/socketService';
@@ -33,6 +35,9 @@ const App: React.FC = () => {
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>('good');
+  const [theme, setTheme] = useState<Theme>('dark');
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -51,9 +56,20 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Load theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('light', savedTheme === 'light');
+    }
+
     yoloService.loadModel().then(() => {
       setIsModelLoading(false);
       showToast('Model loaded successfully', 'success');
+    }).catch((error) => {
+      console.error('Failed to load model:', error);
+      setIsModelLoading(false);
+      showToast('Model loading failed, some features may be limited', 'warning');
     });
     
     // Check for existing session
@@ -71,6 +87,13 @@ const App: React.FC = () => {
     
     checkSession();
   }, [showToast]);
+
+  const toggleTheme = useCallback(() => {
+    const newTheme: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('light', newTheme === 'light');
+  }, [theme]);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
     stream?.getTracks().forEach(track => track.stop());
@@ -325,15 +348,31 @@ const App: React.FC = () => {
   const handleSendMessage = (text: string) => {
     if (!text.trim() || !currentMatchId) return;
 
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, text, sender: 'user' };
+    const userMessage: ChatMessage = { 
+      id: `user-${Date.now()}`, 
+      text, 
+      sender: 'user',
+      timestamp: new Date().toISOString()
+    };
     setMessages(prev => [...prev, userMessage]);
 
     socketService.sendMessage(currentMatchId, text, (response) => {
       if (response.error) {
         console.error('Send message error:', response.error);
+        showToast('Failed to send message', 'error');
+      } else {
+        // Mark message as sent (read receipt will come from partner)
+        setMessages(prev => prev.map(msg => 
+          msg.id === userMessage.id ? { ...msg, read: false } : msg
+        ));
       }
     });
   };
+
+  const handleTyping = useCallback((isTyping: boolean) => {
+    if (!currentMatchId) return;
+    socketService.sendTyping(currentMatchId, isTyping);
+  }, [currentMatchId]);
   
   // Socket event listeners
   useEffect(() => {
@@ -358,9 +397,21 @@ const App: React.FC = () => {
       const chatMessage: ChatMessage = {
         id: event.id,
         text: event.text,
-        sender: event.sender === 'partner' ? 'partner' : 'user'
+        sender: event.sender === 'partner' ? 'partner' : 'user',
+        timestamp: event.createdAt
       };
       setMessages(prev => [...prev, chatMessage]);
+      
+      // Mark previous user messages as read when partner responds
+      if (event.sender === 'partner') {
+        setMessages(prev => prev.map(msg => 
+          msg.sender === 'user' ? { ...msg, read: true } : msg
+        ));
+      }
+    };
+
+    const handlePartnerTyping = (event: { isTyping: boolean }) => {
+      setIsPartnerTyping(event.isTyping);
     };
 
     const handleMatchEnded = () => {
@@ -374,11 +425,13 @@ const App: React.FC = () => {
     socketService.onMatchFound(handleMatchFound);
     socketService.onMessage(handleNewMessage);
     socketService.onMatchEnded(handleMatchEnded);
+    socketService.onTyping(handlePartnerTyping);
 
     return () => {
       socketService.offMatchFound(handleMatchFound);
       socketService.offMessage(handleNewMessage);
       socketService.offMatchEnded(handleMatchEnded);
+      socketService.offTyping(handlePartnerTyping);
     };
   }, [isSocketConnected, blockedPartners, cleanupVerification]);
 
@@ -419,45 +472,111 @@ const App: React.FC = () => {
     };
   }, [cleanupVerification]);
 
+  // Monitor connection quality
+  useEffect(() => {
+    if (!isSocketConnected || chatState !== 'connected') return;
+
+    const checkConnectionQuality = () => {
+      if (!socketService.getConnected()) {
+        setConnectionQuality('disconnected');
+        return;
+      }
+
+      // Simple connection quality check based on socket connection
+      // In production, you'd check WebRTC stats (packet loss, latency, etc.)
+      const quality: ConnectionQuality = socketService.getConnected() ? 'good' : 'poor';
+      setConnectionQuality(quality);
+    };
+
+    const interval = setInterval(checkConnectionQuality, 5000);
+    return () => clearInterval(interval);
+  }, [isSocketConnected, chatState]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Ctrl/Cmd + K: Focus search/next
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (chatState === 'connected') {
+          findNext();
+        }
+      }
+
+      // Escape: Stop chat
+      if (e.key === 'Escape' && chatState !== 'idle') {
+        stopChat(false);
+      }
+
+      // M: Toggle mute (when connected)
+      if (e.key === 'm' && chatState === 'connected' && localStream) {
+        e.preventDefault();
+        localStream.getAudioTracks().forEach(track => {
+          track.enabled = !track.enabled;
+        });
+      }
+
+      // C: Toggle camera (when connected)
+      if (e.key === 'c' && chatState === 'connected' && localStream) {
+        e.preventDefault();
+        localStream.getVideoTracks().forEach(track => {
+          track.enabled = !track.enabled;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [chatState, localStream, findNext, stopChat]);
+
   return (
-    <div className="w-full h-screen overflow-hidden bg-gray-900 flex flex-col font-sans">
-      {/* Hidden video element to generate partner streams */}
-      <video ref={partnerVideoElementRef} style={{ display: 'none' }} crossOrigin="anonymous" playsInline loop muted />
-      
-      {/* Toast notifications */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-      
-      {authState === 'unauthenticated' ? (
-        <div className="animate-fadeIn">
-          <LoginScreen onLogin={handleLogin} />
-        </div>
-      ) : (
-        <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
-                Connect<span className="text-blue-400">Sphere</span>
-              </h1>
-              {chatState !== 'idle' ? (
-                 <button
-                  onClick={() => stopChat(false)}
-                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
-                >
-                  Stop
-                </button>
-              ) : (
-                <div className="flex items-center gap-4 animate-fadeInRight">
-                  <span className="text-gray-300 font-medium">Welcome, {user?.name}!</span>
-                  <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30"
-                  >
-                    Logout
-                  </button>
+    <ErrorBoundary>
+      <div className={`w-full h-screen overflow-hidden ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} flex flex-col font-sans transition-colors duration-300`}>
+        {/* Hidden video element to generate partner streams */}
+        <video ref={partnerVideoElementRef} style={{ display: 'none' }} crossOrigin="anonymous" playsInline loop muted />
+        
+        {/* Toast notifications */}
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+        
+        {authState === 'unauthenticated' ? (
+          <div className="animate-fadeIn">
+            <LoginScreen onLogin={handleLogin} />
+          </div>
+        ) : (
+          <>
+            <header className={`flex-shrink-0 ${theme === 'dark' ? 'bg-gray-900/80' : 'bg-white/80'} backdrop-blur-md z-20 border-b ${theme === 'dark' ? 'border-gray-700/50' : 'border-gray-200'} shadow-lg animate-fadeInDown`}>
+              <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+                <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} tracking-wider bg-clip-text text-transparent bg-gradient-to-r ${theme === 'dark' ? 'from-white to-blue-400' : 'from-gray-900 to-blue-600'}`}>
+                  Connect<span className="text-blue-400">Sphere</span>
+                </h1>
+                <div className="flex items-center gap-3">
+                  <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                  {chatState !== 'idle' ? (
+                     <button
+                      onClick={() => stopChat(false)}
+                      className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
+                    >
+                      Stop
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-4 animate-fadeInRight">
+                      <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} font-medium`}>Welcome, {user?.name}!</span>
+                      <button
+                        onClick={handleLogout}
+                        className={`px-4 py-2 ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg`}
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </header>
+              </div>
+            </header>
 
           <main className="flex-1 overflow-hidden animate-fadeIn">
             {chatState === 'idle' ? (
@@ -471,16 +590,21 @@ const App: React.FC = () => {
                 verificationStatus={verificationStatus}
                 messages={messages}
                 reportMessage={reportMessage}
+                isPartnerTyping={isPartnerTyping}
+                connectionQuality={connectionQuality}
+                currentMatchId={currentMatchId}
                 onNext={findNext}
                 onStop={() => stopChat(false)}
                 onSendMessage={handleSendMessage}
                 onReport={handleReport}
+                onTyping={handleTyping}
               />
             )}
           </main>
         </>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

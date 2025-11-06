@@ -49,7 +49,31 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
+        this.isConnected = false;
         reject(error);
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log('Socket reconnected after', attemptNumber, 'attempts');
+        this.isConnected = true;
+        // Re-authenticate on reconnect
+        const token = apiService.getToken();
+        if (token) {
+          this.socket?.emit('authenticate', token, (response: any) => {
+            if (response.error) {
+              console.error('Re-authentication failed:', response.error);
+            }
+          });
+        }
+      });
+
+      this.socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log('Reconnection attempt', attemptNumber);
+      });
+
+      this.socket.on('reconnect_failed', () => {
+        console.error('Socket reconnection failed');
+        this.isConnected = false;
       });
 
       // Authenticate on connection
@@ -177,6 +201,21 @@ class SocketService {
 
   offIceCandidate(callback: (data: { candidate: RTCIceCandidateInit }) => void) {
     this.socket?.off('ice-candidate', callback);
+  }
+
+  // Typing indicators
+  sendTyping(matchId: string, isTyping: boolean) {
+    if (this.socket) {
+      this.socket.emit('typing', { matchId, isTyping });
+    }
+  }
+
+  onTyping(callback: (data: { isTyping: boolean }) => void) {
+    this.socket?.on('partner-typing', callback);
+  }
+
+  offTyping(callback: (data: { isTyping: boolean }) => void) {
+    this.socket?.off('partner-typing', callback);
   }
 
   getConnected(): boolean {

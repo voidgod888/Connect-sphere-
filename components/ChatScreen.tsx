@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import type { ChatState, VerificationStatus, ChatMessage } from '../types';
+import type { ChatState, VerificationStatus, ChatMessage, ConnectionQuality } from '../types';
 import { VideoPlayer } from './VideoPlayer';
 import { Controls } from './Controls';
 import { ChatHistory } from './ChatHistory';
 import { ChatInput } from './ChatInput';
-import { ShieldCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Signal } from 'lucide-react';
 
 
 interface ChatScreenProps {
@@ -16,11 +16,35 @@ interface ChatScreenProps {
   verificationStatus: VerificationStatus;
   messages: ChatMessage[];
   reportMessage: string | null;
+  isPartnerTyping?: boolean;
+  connectionQuality?: ConnectionQuality;
+  currentMatchId?: string | null;
   onNext: () => void;
   onStop: () => void;
   onSendMessage: (text: string) => void;
   onReport: () => void;
+  onTyping?: (isTyping: boolean) => void;
 }
+
+const ConnectionQualityIndicator: React.FC<{ quality: ConnectionQuality }> = ({ quality }) => {
+  const qualityConfig = {
+    excellent: { icon: Wifi, color: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/50', label: 'Excellent' },
+    good: { icon: Signal, color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/50', label: 'Good' },
+    fair: { icon: Signal, color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', label: 'Fair' },
+    poor: { icon: Signal, color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/50', label: 'Poor' },
+    disconnected: { icon: WifiOff, color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/50', label: 'Disconnected' },
+  };
+
+  const config = qualityConfig[quality] || qualityConfig.good;
+  const Icon = config.icon;
+
+  return (
+    <div className={`absolute top-4 right-4 flex items-center gap-2 ${config.bg} backdrop-blur-sm px-3 py-2 rounded-full border ${config.border} animate-fadeInDown z-20`}>
+      <Icon className={`w-4 h-4 ${config.color}`} />
+      <span className={`text-xs ${config.color} font-medium hidden sm:inline`}>{config.label}</span>
+    </div>
+  );
+};
 
 const VerificationOverlay: React.FC<{ status: VerificationStatus }> = ({ status }) => {
   if (status === 'idle' || status === 'verified') return null;
@@ -88,10 +112,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   verificationStatus, 
   messages, 
   reportMessage, 
+  isPartnerTyping = false,
+  connectionQuality = 'good',
+  currentMatchId = null,
   onNext, 
   onStop, 
   onSendMessage, 
-  onReport 
+  onReport,
+  onTyping
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
@@ -132,12 +160,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <VerificationOverlay status={verificationStatus} />
           <ReportMessageOverlay message={reportMessage} />
           
-          {/* Connection status indicator */}
+          {/* Connection quality indicator */}
           {chatState === 'connected' && verificationStatus === 'verified' && (
-            <div className="absolute top-4 right-4 flex items-center gap-2 bg-green-500/20 backdrop-blur-sm px-3 py-2 rounded-full border border-green-500/50 animate-fadeInDown z-20">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm text-green-300 font-medium">Connected</span>
-            </div>
+            <ConnectionQualityIndicator quality={connectionQuality} />
           )}
         </div>
 
@@ -171,8 +196,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             Chat
           </h3>
         </div>
-        <ChatHistory messages={messages} />
-        <ChatInput onSendMessage={onSendMessage} />
+        <ChatHistory messages={messages} isPartnerTyping={isPartnerTyping} />
+        <ChatInput onSendMessage={onSendMessage} onTyping={onTyping} matchId={currentMatchId} />
       </div>
     </div>
   );

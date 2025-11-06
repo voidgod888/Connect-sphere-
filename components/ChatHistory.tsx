@@ -3,15 +3,41 @@ import type { ChatMessage } from '../types';
 
 interface ChatHistoryProps {
   messages: ChatMessage[];
+  isPartnerTyping?: boolean;
 }
 
-export const ChatHistory: React.FC<ChatHistoryProps> = ({ messages }) => {
+const TypingIndicator: React.FC = () => (
+  <div className="flex justify-start animate-slideInRight">
+    <div className="max-w-xs md:max-w-sm lg:max-w-md px-4 py-2.5 rounded-2xl bg-gray-700 rounded-bl-sm shadow-lg">
+      <div className="flex gap-1 items-center">
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+      </div>
+    </div>
+  </div>
+);
+
+const formatTimestamp = (timestamp?: string): string => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+  return date.toLocaleDateString();
+};
+
+export const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, isPartnerTyping = false }) => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isPartnerTyping]);
 
   useEffect(() => {
     if (messages.length > 0 && messages[messages.length - 1].id !== lastMessageId) {
@@ -51,11 +77,20 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({ messages }) => {
                   } ${isNewMessage ? 'animate-scaleIn' : ''}`}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
+                  {msg.timestamp && (
+                    <p className={`text-xs mt-1 opacity-70 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                      {formatTimestamp(msg.timestamp)}
+                      {msg.read && msg.sender === 'user' && (
+                        <span className="ml-1">✓✓</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             );
           })
         )}
+        {isPartnerTyping && <TypingIndicator />}
         <div ref={endOfMessagesRef} />
       </div>
     </div>

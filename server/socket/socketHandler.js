@@ -135,6 +135,30 @@ export function socketHandler(socket, io) {
     }
   });
 
+  // Typing indicator
+  socket.on('typing', (data) => {
+    try {
+      if (!socket.userId) return;
+
+      const { matchId, isTyping } = data;
+      if (!matchId) return;
+
+      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+      if (!match || match.id !== matchId) return;
+
+      const pair = matchSocketPairs.get(matchId);
+      if (!pair) return;
+
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('partner-typing', { isTyping });
+      }
+    } catch (error) {
+      console.error('Typing indicator error:', error);
+    }
+  });
+
   // Send message
   socket.on('send-message', (data, callback) => {
     try {

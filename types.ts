@@ -25,7 +25,13 @@ export type ChatMessage = {
   id: string;
   text: string;
   sender: 'user' | 'partner';
+  timestamp?: string;
+  read?: boolean;
 };
+
+export type ConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'disconnected';
+
+export type Theme = 'dark' | 'light';
 
 export type AuthState = 'unauthenticated' | 'authenticated';
 

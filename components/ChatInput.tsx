@@ -1,26 +1,73 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send } from 'lucide-react';
 
 interface ChatInputProps {
   onSendMessage: (text: string) => void;
+  onTyping?: (isTyping: boolean) => void;
+  matchId?: string | null;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onTyping, matchId }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
+
+  const handleTyping = useCallback(() => {
+    if (!matchId || !onTyping) return;
+    
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      onTyping(true);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing indicator after 3 seconds of inactivity
+    typingTimeoutRef.current = window.setTimeout(() => {
+      isTypingRef.current = false;
+      onTyping(false);
+    }, 3000);
+  }, [matchId, onTyping]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setText(e.target.value);
+    handleTyping();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim()) {
       onSendMessage(text);
       setText('');
+      
+      // Stop typing indicator
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      if (isTypingRef.current && onTyping) {
+        isTypingRef.current = false;
+        onTyping(false);
+      }
     }
   };
 
   useEffect(() => {
     // Auto-focus input when component mounts
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -31,7 +78,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             ref={inputRef}
             type="text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder="Type a message..."
