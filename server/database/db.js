@@ -20,9 +20,14 @@ export function initDatabase() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       google_id TEXT UNIQUE,
+      username TEXT UNIQUE,
       apple_id TEXT UNIQUE,
       identity TEXT CHECK(identity IN ('male', 'female', 'multiple')) NOT NULL,
       country TEXT NOT NULL DEFAULT 'Global',
+      age INTEGER,
+      subscription_tier TEXT CHECK(subscription_tier IN ('free', 'premium', 'vip')) DEFAULT 'free',
+      coins INTEGER DEFAULT 0,
+      profile_boost_until DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -99,6 +104,7 @@ export function initDatabase() {
       id TEXT PRIMARY KEY,
       reporter_id TEXT NOT NULL,
       reported_id TEXT NOT NULL,
+      category TEXT CHECK(category IN ('inappropriate_content', 'harassment', 'spam', 'underage', 'violence', 'other')),
       reason TEXT,
       match_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -106,6 +112,124 @@ export function initDatabase() {
       FOREIGN KEY (reported_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE SET NULL,
       CHECK(reporter_id != reported_id)
+    )
+  `);
+
+  // User Interests table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_interests (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      interest TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, interest)
+    )
+  `);
+
+  // User Languages table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_languages (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      language TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, language)
+    )
+  `);
+
+  // User Stats table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_stats (
+      user_id TEXT PRIMARY KEY,
+      total_chats INTEGER DEFAULT 0,
+      total_minutes INTEGER DEFAULT 0,
+      current_streak INTEGER DEFAULT 0,
+      longest_streak INTEGER DEFAULT 0,
+      last_chat_date DATE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Achievements table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS achievements (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      max_progress INTEGER DEFAULT 1
+    )
+  `);
+
+  // User Achievements table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      achievement_id TEXT NOT NULL,
+      progress INTEGER DEFAULT 0,
+      unlocked_at DATETIME,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
+      UNIQUE(user_id, achievement_id)
+    )
+  `);
+
+  // Ratings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ratings (
+      id TEXT PRIMARY KEY,
+      rater_id TEXT NOT NULL,
+      rated_id TEXT NOT NULL,
+      match_id TEXT NOT NULL,
+      rating INTEGER CHECK(rating >= 1 AND rating <= 5),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (rater_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (rated_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+      UNIQUE(rater_id, match_id)
+    )
+  `);
+
+  // Countries Connected table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS countries_connected (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      country TEXT NOT NULL,
+      first_connected DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, country)
+    )
+  `);
+
+  // Transactions table (for coins)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      type TEXT CHECK(type IN ('purchase', 'reward', 'spend', 'refund')),
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // User Settings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id TEXT PRIMARY KEY,
+      theme TEXT DEFAULT 'dark',
+      connection_quality TEXT DEFAULT 'auto',
+      auto_skip_mismatch BOOLEAN DEFAULT 0,
+      min_chat_duration INTEGER DEFAULT 0,
+      profanity_filter TEXT DEFAULT 'medium',
+      show_typing_indicator BOOLEAN DEFAULT 1,
+      safe_mode BOOLEAN DEFAULT 0,
+      age_range_min INTEGER,
+      age_range_max INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -119,7 +243,32 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_messages_match_id ON messages(match_id);
     CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON blocks(blocker_id);
     CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
+    CREATE INDEX IF NOT EXISTS idx_user_interests_user ON user_interests(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_languages_user ON user_languages(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ratings_rated ON ratings(rated_id);
+    CREATE INDEX IF NOT EXISTS idx_countries_connected_user ON countries_connected(user_id);
   `);
+
+  // Initialize default achievements
+  const defaultAchievements = [
+    { id: 'first_chat', name: 'First Contact', description: 'Complete your first chat', icon: '🎉', max_progress: 1 },
+    { id: 'globe_trotter', name: 'Globe Trotter', description: 'Chat with users from 50 countries', icon: '🌍', max_progress: 50 },
+    { id: 'night_owl', name: 'Night Owl', description: 'Complete 100 chats after midnight', icon: '🦉', max_progress: 100 },
+    { id: 'polyglot', name: 'Polyglot', description: 'Chat in 5 different languages', icon: '🗣️', max_progress: 5 },
+    { id: 'marathon', name: 'Marathon Chatter', description: 'Have a 1-hour continuous chat', icon: '⏱️', max_progress: 60 },
+    { id: 'social_butterfly', name: 'Social Butterfly', description: 'Complete 100 chats', icon: '🦋', max_progress: 100 },
+    { id: 'streak_master', name: 'Streak Master', description: 'Maintain a 7-day streak', icon: '🔥', max_progress: 7 },
+    { id: 'highly_rated', name: 'Highly Rated', description: 'Receive 50 five-star ratings', icon: '⭐', max_progress: 50 },
+  ];
+
+  const insertAchievement = db.prepare(`
+    INSERT OR IGNORE INTO achievements (id, name, description, icon, max_progress)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  for (const achievement of defaultAchievements) {
+    insertAchievement.run(achievement.id, achievement.name, achievement.description, achievement.icon, achievement.max_progress);
+  }
 
   console.log('✅ Database initialized successfully');
 }
@@ -224,7 +373,148 @@ export const blockQueries = {
 
 export const reportQueries = {
   create: db.prepare(`
-    INSERT INTO reports (id, reporter_id, reported_id, reason, match_id)
+    INSERT INTO reports (id, reporter_id, reported_id, category, reason, match_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+};
+
+// New queries for extended features
+export const statsQueries = {
+  getUserStats: db.prepare(`
+    SELECT * FROM user_stats WHERE user_id = ?
+  `),
+  
+  createUserStats: db.prepare(`
+    INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)
+  `),
+  
+  incrementChats: db.prepare(`
+    UPDATE user_stats 
+    SET total_chats = total_chats + 1,
+        last_chat_date = DATE('now')
+    WHERE user_id = ?
+  `),
+  
+  addMinutes: db.prepare(`
+    UPDATE user_stats 
+    SET total_minutes = total_minutes + ?
+    WHERE user_id = ?
+  `),
+  
+  updateStreak: db.prepare(`
+    UPDATE user_stats 
+    SET current_streak = ?,
+        longest_streak = MAX(longest_streak, ?)
+    WHERE user_id = ?
+  `)
+};
+
+export const interestQueries = {
+  addInterest: db.prepare(`
+    INSERT OR IGNORE INTO user_interests (id, user_id, interest)
+    VALUES (?, ?, ?)
+  `),
+  
+  getUserInterests: db.prepare(`
+    SELECT interest FROM user_interests WHERE user_id = ?
+  `),
+  
+  removeUserInterests: db.prepare(`
+    DELETE FROM user_interests WHERE user_id = ?
+  `)
+};
+
+export const languageQueries = {
+  addLanguage: db.prepare(`
+    INSERT OR IGNORE INTO user_languages (id, user_id, language)
+    VALUES (?, ?, ?)
+  `),
+  
+  getUserLanguages: db.prepare(`
+    SELECT language FROM user_languages WHERE user_id = ?
+  `),
+  
+  removeUserLanguages: db.prepare(`
+    DELETE FROM user_languages WHERE user_id = ?
+  `)
+};
+
+export const achievementQueries = {
+  getUserAchievements: db.prepare(`
+    SELECT a.*, ua.progress, ua.unlocked_at
+    FROM user_achievements ua
+    JOIN achievements a ON ua.achievement_id = a.id
+    WHERE ua.user_id = ?
+  `),
+  
+  updateAchievementProgress: db.prepare(`
+    INSERT INTO user_achievements (id, user_id, achievement_id, progress, unlocked_at)
     VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, achievement_id) DO UPDATE SET
+      progress = excluded.progress,
+      unlocked_at = COALESCE(user_achievements.unlocked_at, excluded.unlocked_at)
+  `),
+  
+  getAllAchievements: db.prepare(`
+    SELECT * FROM achievements
+  `)
+};
+
+export const ratingQueries = {
+  addRating: db.prepare(`
+    INSERT OR IGNORE INTO ratings (id, rater_id, rated_id, match_id, rating)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+  
+  getAverageRating: db.prepare(`
+    SELECT AVG(rating) as avg_rating, COUNT(*) as total_ratings
+    FROM ratings
+    WHERE rated_id = ?
+  `)
+};
+
+export const countryQueries = {
+  addCountry: db.prepare(`
+    INSERT OR IGNORE INTO countries_connected (id, user_id, country)
+    VALUES (?, ?, ?)
+  `),
+  
+  getUserCountries: db.prepare(`
+    SELECT country FROM countries_connected WHERE user_id = ?
+  `)
+};
+
+export const transactionQueries = {
+  create: db.prepare(`
+    INSERT INTO transactions (id, user_id, amount, type, description)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+  
+  updateUserCoins: db.prepare(`
+    UPDATE users SET coins = coins + ? WHERE id = ?
+  `)
+};
+
+export const settingsQueries = {
+  getUserSettings: db.prepare(`
+    SELECT * FROM user_settings WHERE user_id = ?
+  `),
+  
+  createUserSettings: db.prepare(`
+    INSERT OR IGNORE INTO user_settings (user_id) VALUES (?)
+  `),
+  
+  updateUserSettings: db.prepare(`
+    UPDATE user_settings 
+    SET theme = ?,
+        connection_quality = ?,
+        auto_skip_mismatch = ?,
+        min_chat_duration = ?,
+        profanity_filter = ?,
+        show_typing_indicator = ?,
+        safe_mode = ?,
+        age_range_min = ?,
+        age_range_max = ?
+    WHERE user_id = ?
   `)
 };

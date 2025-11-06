@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import type { UserSettings } from '../types';
+import type { UserSettings, Interest, Language } from '../types';
 import { UserIdentity, PartnerPreference } from '../types';
 import { COUNTRIES } from '../constants';
+import { InterestSelector } from './InterestSelector';
+import { LanguageSelector } from './LanguageSelector';
 
 interface SettingsScreenProps {
   onStart: (settings: UserSettings) => void;
@@ -75,6 +77,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
   const [identity, setIdentity] = useState<UserIdentity>(UserIdentity.Male);
   const [preference, setPreference] = useState<PartnerPreference>(PartnerPreference.Everyone);
   const [country, setCountry] = useState<string>('Global');
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [ageRange, setAgeRange] = useState<{ min: number; max: number }>({ min: 13, max: 99 });
+  const [safeMode, setSafeMode] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +89,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
     setIsSubmitting(true);
     // Small delay for button animation feedback
     setTimeout(() => {
-      onStart({ identity, preference, country });
+      onStart({ 
+        identity, 
+        preference, 
+        country,
+        interests: interests.length > 0 ? interests : undefined,
+        languages: languages.length > 0 ? languages : undefined,
+        ageRange,
+        safeMode
+      });
       setIsSubmitting(false);
     }, 300);
   };
@@ -154,6 +169,107 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
               </div>
             </div>
           </div>
+
+          {/* Advanced Options Toggle */}
+          <div className="mb-6 animate-fadeInUp" style={{ animationDelay: '350ms', opacity: 0, animationFillMode: 'forwards' }}>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-all"
+            >
+              <span className="text-gray-300 font-semibold">Advanced Filters</span>
+              <svg
+                className={`w-5 h-5 text-gray-400 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Advanced Options */}
+          {showAdvanced && (
+            <div className="space-y-6 mb-6 animate-fadeIn">
+              {/* Interests */}
+              <div className="animate-fadeInUp">
+                <InterestSelector
+                  selectedInterests={interests}
+                  onChange={setInterests}
+                  maxSelection={5}
+                />
+              </div>
+
+              {/* Languages */}
+              <div className="animate-fadeInUp" style={{ animationDelay: '50ms', opacity: 0, animationFillMode: 'forwards' }}>
+                <LanguageSelector
+                  selectedLanguages={languages}
+                  onChange={setLanguages}
+                  maxSelection={3}
+                />
+              </div>
+
+              {/* Age Range */}
+              <div className="animate-fadeInUp" style={{ animationDelay: '100ms', opacity: 0, animationFillMode: 'forwards' }}>
+                <label className="block text-base sm:text-lg font-semibold text-gray-300 mb-3">
+                  Age Range
+                </label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <label className="text-sm text-gray-400 mb-1 block">Min Age</label>
+                      <input
+                        type="range"
+                        min="13"
+                        max="99"
+                        value={ageRange.min}
+                        onChange={(e) => setAgeRange(prev => ({ ...prev, min: Math.min(parseInt(e.target.value), prev.max - 1) }))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
+                      <p className="text-center text-blue-400 font-semibold mt-1">{ageRange.min}</p>
+                    </div>
+                    <span className="text-gray-400">-</span>
+                    <div className="flex-1">
+                      <label className="text-sm text-gray-400 mb-1 block">Max Age</label>
+                      <input
+                        type="range"
+                        min="13"
+                        max="99"
+                        value={ageRange.max}
+                        onChange={(e) => setAgeRange(prev => ({ ...prev, max: Math.max(parseInt(e.target.value), prev.min + 1) }))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
+                      <p className="text-center text-blue-400 font-semibold mt-1">{ageRange.max}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Safe Mode Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg animate-fadeInUp" style={{ animationDelay: '150ms', opacity: 0, animationFillMode: 'forwards' }}>
+                <div>
+                  <h4 className="text-white font-semibold flex items-center gap-2">
+                    <span>🛡️</span> Safe Mode
+                  </h4>
+                  <p className="text-xs text-gray-400">Match with verified users only</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSafeMode(!safeMode)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    safeMode ? 'bg-green-600' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      safeMode ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="animate-fadeInUp" style={{ animationDelay: '400ms', opacity: 0, animationFillMode: 'forwards' }}>
             <button
