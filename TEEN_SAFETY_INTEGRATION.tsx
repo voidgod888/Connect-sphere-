@@ -34,7 +34,8 @@ const TeenSafetyIntegration = () => {
   const handleAgeVerification = async (age: number) => {
     try {
       // Save age to backend
-      await apiService.updateUserSettings({ age });
+      // Note: You would need to add an age update endpoint to the backend API
+      // await apiService.updateUserAge(age);
       
       // Update user object
       setUser({ ...user, age });

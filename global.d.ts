@@ -1,6 +1,20 @@
 export {};
 
 declare global {
+  interface ImportMetaEnv {
+    readonly VITE_GOOGLE_CLIENT_ID?: string;
+    readonly VITE_APPLE_CLIENT_ID?: string;
+    readonly VITE_APPLE_SCOPE?: string;
+    readonly VITE_APPLE_REDIRECT_URI?: string;
+    readonly VITE_API_URL?: string;
+    readonly VITE_SOCKET_URL?: string;
+    readonly VITE_WS_URL?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+
   interface Window {
     google?: {
       accounts?: {
