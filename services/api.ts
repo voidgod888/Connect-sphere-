@@ -117,6 +117,82 @@ class ApiService {
   async healthCheck(): Promise<{ status: string }> {
     return this.request<{ status: string }>('/health');
   }
+
+  // Stats endpoints
+  async getUserStats(): Promise<any> {
+    return this.request('/stats/me');
+  }
+
+  async getLeaderboard(limit?: number): Promise<any> {
+    const query = limit ? `?limit=${limit}` : '';
+    return this.request(`/stats/leaderboard${query}`);
+  }
+
+  async rateUser(ratedId: string, matchId: string, rating: number): Promise<any> {
+    return this.request('/stats/rate', {
+      method: 'POST',
+      body: JSON.stringify({ ratedId, matchId, rating }),
+    });
+  }
+
+  // Premium endpoints
+  async upgradeSubscription(tier: string): Promise<any> {
+    return this.request('/premium/upgrade', {
+      method: 'POST',
+      body: JSON.stringify({ tier }),
+    });
+  }
+
+  async purchaseCoins(amount: number): Promise<any> {
+    return this.request('/premium/coins/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  }
+
+  async boostProfile(): Promise<any> {
+    return this.request('/premium/boost', {
+      method: 'POST',
+    });
+  }
+
+  async setUsername(username: string): Promise<any> {
+    return this.request('/premium/username', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
+  }
+
+  async getTransactions(limit?: number): Promise<any> {
+    const query = limit ? `?limit=${limit}` : '';
+    return this.request(`/premium/transactions${query}`);
+  }
+
+  // Settings endpoints
+  async getUserSettings(): Promise<any> {
+    return this.request('/settings/me');
+  }
+
+  async updateAdvancedSettings(settings: any): Promise<any> {
+    return this.request('/settings/advanced', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async updateInterests(interests: string[]): Promise<any> {
+    return this.request('/settings/interests', {
+      method: 'PUT',
+      body: JSON.stringify({ interests }),
+    });
+  }
+
+  async updateLanguages(languages: string[]): Promise<any> {
+    return this.request('/settings/languages', {
+      method: 'PUT',
+      body: JSON.stringify({ languages }),
+    });
+  }
 }
 
 export const apiService = new ApiService();
