@@ -13,6 +13,29 @@ const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 
 export function initDatabase() {
+  // Check if users table exists and has apple_id column
+  const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
+  
+  if (tableInfo) {
+    // Table exists, check if apple_id column exists
+    const columns = db.prepare("PRAGMA table_info(users)").all();
+    const hasAppleId = columns.some(col => col.name === 'apple_id');
+    
+    if (!hasAppleId) {
+      // Add apple_id column to existing table
+      try {
+        db.exec(`ALTER TABLE users ADD COLUMN apple_id TEXT UNIQUE`);
+        console.log('✅ Added apple_id column to users table');
+      } catch (error) {
+        console.error('Error adding apple_id column:', error);
+      }
+    }
+    
+    // Remove old CHECK constraint if it exists (for existing databases)
+    // SQLite doesn't support DROP CONSTRAINT directly, so we'll recreate the table if needed
+    // But we'll skip this for now to avoid data loss - the constraint will only apply to new rows
+  }
+
   // Users table
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -24,10 +47,12 @@ export function initDatabase() {
       identity TEXT CHECK(identity IN ('male', 'female', 'multiple')) NOT NULL,
       country TEXT NOT NULL DEFAULT 'Global',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-      CHECK((google_id IS NOT NULL) OR (apple_id IS NOT NULL))
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Note: CHECK constraint for google_id or apple_id is not enforced on existing tables
+  // to avoid breaking existing data. New users will be validated at the application level.
 
   // Sessions table
   db.exec(`

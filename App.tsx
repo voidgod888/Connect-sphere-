@@ -576,7 +576,7 @@ const App: React.FC = () => {
         <div className="animate-fadeIn">
           <LoginScreen onLogin={handleLogin} />
         </div>
-      ) : user ? (
+      ) : authState === 'authenticated' && user ? (
         <>
           <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
             <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -628,6 +628,18 @@ const App: React.FC = () => {
             )}
           </main>
         </>
+      ) : (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-gray-300 mb-4">Loading user data...</p>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+            >
+              Return to Login
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 import express from 'express';
 import { OAuth2Client } from 'google-auth-library';
-import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { userQueries, sessionQueries } from '../database/db.js';
 
@@ -93,11 +92,27 @@ router.post('/google', async (req, res) => {
       // Check if user exists by email
       user = userQueries.findByEmail.get(email);
       if (user) {
-        // Update with Google ID if missing
-        if (!user.google_id) {
-          // Note: SQLite doesn't support UPDATE with UNIQUE constraint easily, 
-          // so we'll need to handle this case differently
-          // For now, we'll create a new user if email exists but Google ID doesn't match
+        // User exists but doesn't have this Google ID
+        // If they have an Apple ID, create a new account (can't link easily)
+        // If they don't have any OAuth ID, we should update them (but SQLite makes this tricky)
+        // For now, if user exists with same email but different OAuth, create new account
+        // In production, you might want to implement account linking
+        if (!user.google_id && !user.apple_id) {
+          // User exists but has no OAuth ID - this shouldn't happen with new schema
+          // But handle gracefully by creating new account
+          const userId = `user_${uuidv4()}`;
+          userQueries.create.run(
+            userId,
+            sanitizeString(name || email.split('@')[0]),
+            email,
+            googleId,
+            null, // apple_id
+            sanitizedIdentity,
+            sanitizedCountry
+          );
+          user = userQueries.findById.get(userId);
+        } else {
+          // User has different OAuth provider - create new account
           const userId = `user_${uuidv4()}`;
           userQueries.create.run(
             userId,
@@ -189,8 +204,14 @@ router.post('/apple', async (req, res) => {
           return res.status(401).json({ error: 'Invalid Apple token format' });
         }
 
-        // Decode payload (base64url)
-        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+        // Decode payload (base64url - Apple uses base64url encoding)
+        // Convert base64url to base64
+        let base64 = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
+        // Add padding if needed
+        while (base64.length % 4) {
+          base64 += '=';
+        }
+        const payload = JSON.parse(Buffer.from(base64, 'base64').toString());
         
         // Verify token claims
         if (payload.iss !== 'https://appleid.apple.com') {

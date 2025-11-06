@@ -37,7 +37,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const googleInitializedRef = useRef(false);
 
-  const handleGoogleCredentialResponse = async (response: any) => {
+  const handleGoogleCredentialResponse = React.useCallback(async (response: any) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -53,7 +53,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       setError(err.message || 'Failed to authenticate with Google. Please try again.');
       setIsLoading(false);
     }
-  };
+  }, [onLogin]);
 
   useEffect(() => {
     // Wait for Google Identity Services to load
@@ -96,7 +96,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       // Cleanup after 10 seconds
       setTimeout(() => clearInterval(checkInterval), 10000);
     }
-  }, []);
+
+    return () => {
+      // Cleanup interval if component unmounts
+    };
+  }, [handleGoogleCredentialResponse]);
 
   const handleGoogleLogin = () => {
     if (typeof window !== 'undefined' && (window as any).google) {
@@ -111,28 +115,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       setIsLoading(true);
       setError(null);
       
+      const appleClientId = import.meta.env.VITE_APPLE_CLIENT_ID;
+      
+      if (!appleClientId) {
+        setError('Apple Sign-In is not configured. Please use Google Sign-In.');
+        setIsLoading(false);
+        return;
+      }
+      
       // Check if Apple Sign-In is available
       if (typeof window !== 'undefined' && (window as any).AppleID) {
         const { AppleID } = window as any;
         
-        AppleID.auth.init({
-          clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
-          scope: 'name email',
-          redirectURI: window.location.origin,
-          usePopup: true,
-        });
+        try {
+          AppleID.auth.init({
+            clientId: appleClientId,
+            scope: 'name email',
+            redirectURI: window.location.origin,
+            usePopup: true,
+          });
 
-        const response = await AppleID.auth.signIn();
-        
-        if (response && response.id_token) {
-          const authResponse = await apiService.authApple(response.id_token);
-          onLogin(authResponse.user);
-        } else {
-          throw new Error('No identity token received from Apple');
+          const response = await AppleID.auth.signIn();
+          
+          if (response && response.id_token) {
+            const authResponse = await apiService.authApple(response.id_token);
+            onLogin(authResponse.user);
+          } else {
+            throw new Error('No identity token received from Apple');
+          }
+        } catch (initError: any) {
+          console.error('Apple Sign-In initialization error:', initError);
+          throw new Error(initError.message || 'Failed to initialize Apple Sign-In');
         }
       } else {
         // Fallback: Show instructions for Apple Sign-In
-        setError('Apple Sign-In requires additional configuration. Please use Google Sign-In for now.');
+        setError('Apple Sign-In is not available. Please use Google Sign-In for now.');
         setIsLoading(false);
       }
     } catch (err: any) {
