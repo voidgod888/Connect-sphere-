@@ -21,6 +21,7 @@ export function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       google_id TEXT UNIQUE,
       username TEXT UNIQUE,
+      apple_id TEXT UNIQUE,
       identity TEXT CHECK(identity IN ('male', 'female', 'multiple')) NOT NULL,
       country TEXT NOT NULL DEFAULT 'Global',
       age INTEGER,
@@ -31,6 +32,17 @@ export function initDatabase() {
       last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Ensure legacy databases get the apple_id column
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  const hasAppleIdColumn = userColumns.some(column => column.name === 'apple_id');
+  if (!hasAppleIdColumn) {
+    try {
+      db.exec('ALTER TABLE users ADD COLUMN apple_id TEXT UNIQUE');
+    } catch (error) {
+      console.warn('⚠️  Could not add apple_id column (may already exist):', error.message);
+    }
+  }
 
   // Sessions table
   db.exec(`
@@ -266,21 +278,24 @@ export const database = db;
 // Helper functions
 export const userQueries = {
   create: db.prepare(`
-    INSERT INTO users (id, name, email, google_id, identity, country)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO users (id, name, email, google_id, apple_id, identity, country)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   
   findByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
   findById: db.prepare('SELECT * FROM users WHERE id = ?'),
   findByGoogleId: db.prepare('SELECT * FROM users WHERE google_id = ?'),
+  findByAppleId: db.prepare('SELECT * FROM users WHERE apple_id = ?'),
   
   update: db.prepare(`
     UPDATE users 
     SET name = ?, identity = ?, country = ?, last_seen = CURRENT_TIMESTAMP
     WHERE id = ?
   `),
-  
-  updateLastSeen: db.prepare('UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = ?')
+
+  updateLastSeen: db.prepare('UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = ?'),
+  linkGoogleId: db.prepare('UPDATE users SET google_id = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?'),
+  linkAppleId: db.prepare('UPDATE users SET apple_id = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?')
 };
 
 export const sessionQueries = {
