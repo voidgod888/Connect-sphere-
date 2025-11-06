@@ -3,32 +3,57 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { initDatabase } from './database/db.js';
 import { authRouter } from './routes/auth.js';
 import { userRouter } from './routes/users.js';
-import { matchingService } from './services/matching.js';
 import { socketHandler } from './socket/socketHandler.js';
 
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: allowedOrigins.length > 0 ? allowedOrigins : ['http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    credentials: true,
   }
 });
 
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true
+app.disable('x-powered-by');
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
 }));
-app.use(express.json());
+
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : ['http://localhost:3000'],
+  credentials: true,
+}));
+
+app.use(express.json({ limit: '1mb' }));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+app.use('/api/', apiLimiter);
 
 // Initialize database
 initDatabase();
