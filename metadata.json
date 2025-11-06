@@ -1,0 +1,8 @@
+{
+  "name": "ConnectSphere",
+  "description": "A modern video chat application to connect with people from around the world, featuring advanced filtering options and a superior user interface. Experience the next generation of random video chats.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
