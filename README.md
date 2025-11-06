@@ -6,8 +6,6 @@
 
 A real-time video chat application similar to Omegle, built with React, TypeScript, Node.js, and WebRTC.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsigHOpHV4ncW
-
 ## 📋 Table of Contents
 
 - [Features](#features)
@@ -30,7 +28,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 - 💬 **WebSocket-based Chat** - Real-time text messaging during video calls
 - 🎯 **Partner Preference Filtering** - Gender-based matching (Male/Female/Everyone)
 - 🛡️ **User Moderation** - Reporting and blocking functionality
-- 📊 **AI Gender Detection** - ML-based gender verification using YOLO (simulated)
+- 📊 **Gender Detection** - ML-based gender verification using YOLO (simulated)
 - 🌍 **Country-based Filtering** - Match users by country preference
 - 📱 **Responsive Design** - Modern UI with toast notifications
 
@@ -251,7 +249,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 - `onOffer/Answer/IceCandidate()`: WebRTC signaling events
 
 #### `services/yoloService.ts` - Gender Detection Service
-**Purpose**: AI-based gender detection for partner verification
+**Purpose**: ML-based gender detection for partner verification
 
 **Implementation**:
 - Uses Web Worker for non-blocking processing
