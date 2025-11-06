@@ -22,11 +22,11 @@ const ControlButton: React.FC<{
 }> = ({ onClick, disabled = false, children, className = '', ariaLabel, variant = 'default' }) => {
   const [isPressed, setIsPressed] = useState(false);
 
-  const baseClasses = 'w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
+  const baseClasses = 'w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none touch-manipulation';
   
   const variantClasses = {
     default: 'bg-gray-700/90 text-white hover:bg-gray-600 focus:ring-gray-500',
-    primary: 'bg-blue-600 text-white hover:bg-blue-600 focus:ring-blue-500',
+    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
     warning: 'bg-gray-700/90 text-white hover:bg-yellow-600 focus:ring-yellow-500',
   };
@@ -42,6 +42,8 @@ const ControlButton: React.FC<{
       className={`${baseClasses} ${variantClasses[variant]} ${className} ${
         !disabled && !isPressed ? 'hover:scale-110 active:scale-95' : ''
       } ${isPressed ? 'scale-90' : ''} shadow-lg hover:shadow-xl`}
+      onTouchStart={() => setIsPressed(true)}
+      onTouchEnd={() => setIsPressed(false)}
     >
       <div className="transition-transform duration-200">
         {children}
@@ -87,7 +89,7 @@ export const Controls: React.FC<ControlsProps> = ({
           </div>
         </div>
       )}
-      <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
+      <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 bg-black/40 backdrop-blur-md p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
       <ControlButton
         onClick={onToggleMute}
         ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}

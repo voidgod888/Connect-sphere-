@@ -1,5 +1,6 @@
+import type { User } from '../types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 
 export interface AuthResponse {
   user: {
@@ -9,12 +10,6 @@ export interface AuthResponse {
   };
   token: string;
   expiresAt: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
 }
 
 class ApiService {
@@ -51,17 +46,32 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (networkError) {
+      throw new Error('Network request failed');
     }
 
-    return response.json();
+    let payload: any = null;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      payload = await response.json().catch(() => null);
+    }
+
+    if (!response.ok) {
+      const errorMessage = (payload && payload.error) || `HTTP error ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    if (payload === null) {
+      return {} as T;
+    }
+
+    return payload as T;
   }
 
   async authGoogle(idToken: string, identity?: string, country?: string): Promise<AuthResponse> {
@@ -77,6 +87,24 @@ class ApiService {
 
   async authApple(identityToken: string, identity?: string, country?: string): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>('/auth/apple', {
+  async authApple(
+    identityToken: string,
+    identity?: string,
+    country?: string,
+    fullName?: string
+  ): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>('/auth/apple', {
+      method: 'POST',
+      body: JSON.stringify({ identityToken, identity, country, fullName }),
+    });
+    if (response.token) {
+      this.setToken(response.token);
+    }
+    return response;
+  }
+
+  async authMock(email: string, name?: string, identity?: string, country?: string): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>('/auth/mock', {
       method: 'POST',
       body: JSON.stringify({ identity_token: identityToken, identity, country }),
     });
@@ -116,6 +144,49 @@ class ApiService {
 
   async healthCheck(): Promise<{ status: string }> {
     return this.request<{ status: string }>('/health');
+  }
+
+  // Stats endpoints
+  async getUserStats(): Promise<any> {
+    return this.request('/stats/me');
+  }
+
+  async getLeaderboard(limit?: number): Promise<any> {
+    const query = limit ? `?limit=${limit}` : '';
+    return this.request(`/stats/leaderboard${query}`);
+  }
+
+  async rateUser(ratedId: string, matchId: string, rating: number): Promise<any> {
+    return this.request('/stats/rate', {
+      method: 'POST',
+      body: JSON.stringify({ ratedId, matchId, rating }),
+    });
+  }
+
+  // Settings endpoints
+  async getUserSettings(): Promise<any> {
+    return this.request('/settings/me');
+  }
+
+  async updateAdvancedSettings(settings: any): Promise<any> {
+    return this.request('/settings/advanced', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async updateInterests(interests: string[]): Promise<any> {
+    return this.request('/settings/interests', {
+      method: 'PUT',
+      body: JSON.stringify({ interests }),
+    });
+  }
+
+  async updateLanguages(languages: string[]): Promise<any> {
+    return this.request('/settings/languages', {
+      method: 'PUT',
+      body: JSON.stringify({ languages }),
+    });
   }
 }
 

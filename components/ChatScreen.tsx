@@ -125,7 +125,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const isNextDisabled = chatState === 'searching' || (verificationStatus !== 'verified' && verificationStatus !== 'idle');
 
   return (
-    <div className="w-full h-full flex flex-col md:flex-row bg-black animate-fadeIn">
+    <div className="w-full h-full flex flex-col md:flex-row bg-black animate-fadeIn safe-area-top safe-area-bottom">
       {/* Video Area */}
       <div className="relative flex-1 h-full flex flex-col items-center justify-center bg-gradient-to-br from-black via-gray-900 to-black">
         <div className="w-full h-full flex items-center justify-center relative animate-fadeIn">
@@ -142,25 +142,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           
           {/* Connection status indicator */}
           {chatState === 'connected' && verificationStatus === 'verified' && (
-            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-              <div className="flex items-center gap-2 bg-green-500/20 backdrop-blur-sm px-3 py-2 rounded-full border border-green-500/50 animate-fadeInDown">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm text-green-300 font-medium">Connected</span>
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex flex-col gap-2 z-20">
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-green-500/20 backdrop-blur-sm px-2 py-1 sm:px-3 sm:py-2 rounded-full border border-green-500/50 animate-fadeInDown">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs sm:text-sm text-green-300 font-medium">Connected</span>
               </div>
               {connectionQuality && (
-                <div className={`flex items-center gap-2 backdrop-blur-sm px-3 py-1.5 rounded-full border animate-fadeInDown text-xs font-medium ${
+                <div className={`flex items-center gap-1.5 sm:gap-2 backdrop-blur-sm px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border animate-fadeInDown text-xs font-medium ${
                   connectionQuality === 'excellent' ? 'bg-green-500/20 border-green-500/50 text-green-300' :
                   connectionQuality === 'good' ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' :
                   connectionQuality === 'fair' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' :
                   'bg-red-500/20 border-red-500/50 text-red-300'
                 }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${
+                  <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
                     connectionQuality === 'excellent' ? 'bg-green-400' :
                     connectionQuality === 'good' ? 'bg-blue-400' :
                     connectionQuality === 'fair' ? 'bg-yellow-400' :
                     'bg-red-400'
                   }`}></div>
-                  <span>{connectionQuality.charAt(0).toUpperCase() + connectionQuality.slice(1)}</span>
+                  <span className="hidden sm:inline">{connectionQuality.charAt(0).toUpperCase() + connectionQuality.slice(1)}</span>
                 </div>
               )}
             </div>
@@ -168,12 +168,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
 
         {/* Local video preview */}
-        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 w-36 h-auto sm:w-48 md:w-64 z-20 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700/50 backdrop-blur-sm animate-scaleIn hover:border-blue-500/50 transition-all duration-300">
+        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 md:top-6 md:left-6 w-24 h-auto sm:w-36 md:w-48 lg:w-64 z-20 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700/50 backdrop-blur-sm animate-scaleIn hover:border-blue-500/50 transition-all duration-300 safe-area-top safe-area-left">
           <VideoPlayer stream={localStream} muted={true} isCameraOff={isCameraOff}/>
         </div>
         
         {/* Controls */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-20 animate-fadeInUp">
+        <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 z-20 animate-fadeInUp safe-area-bottom">
           <Controls
             onNext={onNext}
             onStop={onStop}
@@ -188,10 +188,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       </div>
 
       {/* Chat Panel */}
-      <div className="w-full h-[40vh] md:h-full md:w-80 lg:w-96 bg-gray-800/95 backdrop-blur-md flex flex-col border-t-2 md:border-t-0 md:border-l-2 border-gray-700/50 animate-slideInRight shadow-2xl">
-        <div className="p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm">
-          <h3 className="text-lg font-semibold text-center text-white flex items-center justify-center gap-2">
-            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-full h-[35vh] sm:h-[40vh] md:h-full md:w-80 lg:w-96 bg-gray-800/95 backdrop-blur-md flex flex-col border-t-2 md:border-t-0 md:border-l-2 border-gray-700/50 animate-slideInRight shadow-2xl safe-area-bottom">
+        <div className="p-3 sm:p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-center text-white flex items-center justify-center gap-2">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             Chat

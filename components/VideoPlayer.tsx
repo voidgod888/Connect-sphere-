@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { isMobileDevice } from '../utils';
 
 interface VideoPlayerProps {
   stream: MediaStream | null;
@@ -28,7 +29,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
     if (videoRef.current) {
       videoRef.current.volume = isVolumeMuted ? 0 : volume;
     }
-  }, [volume, isVolumeMuted, videoRef, stream]);
+  }, [volume, isVolumeMuted, videoRef]);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
@@ -48,11 +49,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
     return <Volume2 size={20} className="w-5 h-5 transition-transform duration-200 hover:scale-110"/>;
   }
 
+  const isMobile = isMobileDevice();
+
   return (
     <div 
       className="group w-full h-full bg-black flex items-center justify-center relative overflow-hidden animate-fadeIn"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => !isMobile && setIsHovered(true)}
+      onMouseLeave={() => !isMobile && setIsHovered(false)}
+      onTouchStart={() => isMobile && setIsHovered(true)}
+      onTouchEnd={() => {
+        if (isMobile) {
+          setTimeout(() => setIsHovered(false), 3000);
+        }
+      }}
     >
        {isCameraOff ? (
         <div className="w-full h-full flex items-center justify-center bg-gray-900 animate-fadeIn">
@@ -87,15 +96,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
       )}
        {showVolumeControl && !isCameraOff && stream && (
         <div 
-          className={`absolute bottom-4 left-1/2 -translate-x-1/2 w-56 bg-gray-900/80 backdrop-blur-md rounded-full p-3 flex items-center gap-3 shadow-xl border border-gray-700/50 transition-all duration-300 z-30 ${
-            isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+          className={`absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 w-[90%] sm:w-56 max-w-xs bg-gray-900/80 backdrop-blur-md rounded-full p-2 sm:p-3 flex items-center gap-2 sm:gap-3 shadow-xl border border-gray-700/50 transition-all duration-300 z-30 ${
+            isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
           }`}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+          onMouseEnter={() => !isMobile && setIsHovered(true)}
+          onMouseLeave={() => !isMobile && setIsHovered(false)}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           <button 
             onClick={toggleVolumeMute} 
-            className="text-white hover:text-blue-400 transition-all duration-200 transform hover:scale-110 active:scale-95 pl-2"
+            className="text-white hover:text-blue-400 transition-all duration-200 transform active:scale-95 pl-1 sm:pl-2 touch-manipulation flex-shrink-0"
           >
             {getVolumeIcon()}
           </button>
@@ -106,13 +116,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
             step="0.01"
             value={isVolumeMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
+            className="flex-1 h-1.5 sm:h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all touch-manipulation"
             style={{
               background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(isVolumeMuted ? 0 : volume) * 100}%, #374151 ${(isVolumeMuted ? 0 : volume) * 100}%, #374151 100%)`
             }}
             aria-label="Volume"
           />
-          <span className="text-white text-xs font-medium w-8 text-right">
+          <span className="text-white text-xs font-medium w-6 sm:w-8 text-right flex-shrink-0">
             {Math.round((isVolumeMuted ? 0 : volume) * 100)}%
           </span>
         </div>

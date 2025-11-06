@@ -4,6 +4,14 @@ import { apiService } from '../services/api';
 
 interface LoginScreenProps {
   onLogin: (user: { id: string; name: string; email: string }) => void;
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+interface LoginScreenProps {
+  onGoogleLogin: (credential: string) => void;
+  onAppleLogin: (identityToken: string, fullName?: string) => void;
+  isLoading: boolean;
+  error?: string | null;
+  onError?: (message: string | null) => void;
 }
 
 const GoogleIcon: React.FC = () => (
@@ -159,8 +167,183 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     }
   };
 
+  const [googleReady, setGoogleReady] = useState(false);
+  const [appleReady, setAppleReady] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const appleClientId = import.meta.env.VITE_APPLE_CLIENT_ID as string | undefined;
+  const appleScope = import.meta.env.VITE_APPLE_SCOPE || 'name email';
+  const appleRedirectUrl = useMemo(() => {
+    if (import.meta.env.VITE_APPLE_REDIRECT_URI) {
+      return import.meta.env.VITE_APPLE_REDIRECT_URI as string;
+    }
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/auth/apple/callback`;
+    }
+    return '';
+  }, []);
+
+  const appleState = useMemo(() => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).slice(2, 10);
+  }, []);
+
+  const reportError = useCallback((message: string | null) => {
+    setLocalError(message);
+    onError?.(message);
+  }, [onError]);
+
+  useEffect(() => {
+    if (!googleClientId) {
+      reportError('Google client ID is not configured.');
+      return;
+    }
+
+    if (window.google?.accounts?.id) {
+      setGoogleReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (cancelled) return;
+      if (window.google?.accounts?.id) {
+        setGoogleReady(true);
+      } else {
+        reportError('Google authentication SDK failed to load.');
+      }
+    };
+    script.onerror = () => {
+      if (!cancelled) {
+        reportError('Unable to load Google authentication SDK.');
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+      document.head.removeChild(script);
+    };
+  }, [googleClientId, reportError]);
+
+  useEffect(() => {
+    if (!appleClientId) {
+      reportError('Apple client ID is not configured.');
+      return;
+    }
+
+    const initApple = () => {
+      if (!window.AppleID?.auth) {
+        return false;
+      }
+      window.AppleID.auth.init({
+        clientId: appleClientId,
+        scope: appleScope,
+        redirectURI: appleRedirectUrl,
+        state: appleState,
+        usePopup: true,
+      });
+      setAppleReady(true);
+      return true;
+    };
+
+    if (initApple()) {
+      return;
+    }
+
+    let cancelled = false;
+    const script = document.createElement('script');
+    script.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (cancelled) return;
+      if (!initApple()) {
+        reportError('Apple authentication SDK failed to load.');
+      }
+    };
+    script.onerror = () => {
+      if (!cancelled) {
+        reportError('Unable to load Apple authentication SDK.');
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+      document.head.removeChild(script);
+    };
+  }, [appleClientId, appleScope, appleRedirectUrl, appleState, reportError]);
+
+  const handleGoogleClick = useCallback(() => {
+    if (isLoading) return;
+    if (!googleClientId || !window.google?.accounts?.id) {
+      reportError('Google Sign-In is not available right now.');
+      return;
+    }
+    reportError(null);
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response: GoogleCredentialResponse) => {
+        if (response.credential) {
+          onGoogleLogin(response.credential);
+        } else {
+          reportError('Google sign-in did not return a credential.');
+        }
+      },
+      auto_select: false,
+      ux_mode: 'popup',
+      itp_support: true,
+    });
+    window.google.accounts.id.prompt((notification) => {
+      if (notification?.isNotDisplayed?.()) {
+        reportError('Google sign-in prompt was blocked. Please allow pop-ups or try again.');
+      }
+    });
+  }, [googleClientId, isLoading, onGoogleLogin, reportError]);
+
+  const handleAppleClick = useCallback(async () => {
+    if (isLoading) return;
+    if (!appleClientId || !window.AppleID?.auth) {
+      reportError('Apple Sign-In is not available right now.');
+      return;
+    }
+    reportError(null);
+    try {
+      const response = await window.AppleID.auth.signIn();
+      const identityToken = response?.authorization?.id_token;
+      if (!identityToken) {
+        reportError('Apple sign-in did not return an identity token.');
+        return;
+      }
+      const firstName = response.user?.name?.firstName ?? '';
+      const lastName = response.user?.name?.lastName ?? '';
+      const fullName = `${firstName} ${lastName}`.trim() || undefined;
+      onAppleLogin(identityToken, fullName);
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'error' in err) {
+        const code = (err as { error?: string }).error;
+        if (code === 'popup_closed_by_user' || code === 'user_cancelled_authorize') {
+          return;
+        }
+      }
+      reportError('Apple sign-in was cancelled or failed. Please try again.');
+    }
+  }, [appleClientId, isLoading, onAppleLogin, reportError]);
+
+  const googleDisabled = !googleReady || !googleClientId || isLoading;
+  const appleDisabled = !appleReady || !appleClientId || !appleRedirectUrl || isLoading;
+  const displayError = error ?? localError;
+
   return (
-    <div className="h-full w-full relative flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900 overflow-hidden">
+    <div className="h-full w-full relative flex items-center justify-center p-3 sm:p-4 bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900 overflow-hidden safe-area-top safe-area-bottom">
       {/* Animated background particles */}
       <div className="particles">
         {particles.map((p) => (
@@ -177,26 +360,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         ))}
       </div>
 
-      {/* Main content */}
       <div className="w-full max-w-md mx-auto text-center relative z-10">
         <div className="animate-fadeInUp">
-          <div className="mb-6 inline-block animate-float">
+          <div className="mb-4 sm:mb-6 inline-block animate-float">
             <div 
-              className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl animate-gradient" 
+              className="w-20 h-20 sm:w-24 sm:h-24 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl animate-gradient" 
               style={{
                 backgroundImage: 'linear-gradient(-45deg, #3b82f6, #6366f1, #8b5cf6, #3b82f6)',
                 backgroundSize: '200% 200%',
               }}
             >
-              <span className="text-4xl font-bold text-white">C</span>
+              <span className="text-3xl sm:text-4xl font-bold text-white">C</span>
             </div>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-wider mb-4 animate-fadeInUp" style={{ animationDelay: '0.1s', opacity: 0, animationFillMode: 'forwards' }}>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-wider mb-3 sm:mb-4 px-2 animate-fadeInUp" style={{ animationDelay: '0.1s', opacity: 0, animationFillMode: 'forwards' }}>
             Welcome to Connect<span className="text-blue-400 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">Sphere</span>
           </h1>
           
-          <p className="text-lg text-gray-300 mb-12 animate-fadeInUp" style={{ animationDelay: '0.2s', opacity: 0, animationFillMode: 'forwards' }}>
+          <p className="text-base sm:text-lg text-gray-300 mb-8 sm:mb-12 px-4 animate-fadeInUp" style={{ animationDelay: '0.2s', opacity: 0, animationFillMode: 'forwards' }}>
             Connect with people from around the world.
           </p>
         </div>
@@ -228,11 +410,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           
           <p className="text-xs text-gray-400 mt-8 animate-fadeIn" style={{ animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}>
             Sign in with Google or Apple to ensure a safe and moderated community.
+          <div className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={handleGoogleClick}
+              disabled={googleDisabled}
+              className={`group relative inline-flex items-center justify-center w-full bg-white text-gray-700 font-semibold py-4 px-6 rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden ${googleDisabled ? 'opacity-60 cursor-not-allowed hover:scale-100' : 'hover:shadow-blue-500/20'}`}
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <GoogleIcon />
+              <span className="relative z-10">Continue with Google</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAppleClick}
+              disabled={appleDisabled}
+              className={`group relative inline-flex items-center justify-center w-full bg-black text-white font-semibold py-4 px-6 rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-white/40 overflow-hidden ${appleDisabled ? 'opacity-60 cursor-not-allowed hover:scale-100' : 'hover:shadow-gray-800/40'}`}
+            >
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <AppleIcon />
+              <span className="relative z-10">Continue with Apple</span>
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-400 mt-6 sm:mt-8 px-4 animate-fadeIn" style={{ animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}>
+            Authentication is required to keep our community safe. We never store your passwords.
           </p>
+
+          {displayError && (
+            <div className="mt-6 bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-lg shadow-lg shadow-red-500/20 animate-fadeIn">
+              {displayError}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Animated background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-transparent to-indigo-600/10 animate-pulse-slow pointer-events-none"></div>
     </div>
   );

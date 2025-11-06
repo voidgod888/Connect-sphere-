@@ -1,21 +1,17 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { UserSettings, ChatState, VerificationStatus, ChatMessage, AuthState, User, Partner } from './types';
+import type { UserSettings, ChatState, VerificationStatus, ChatMessage, Partner } from './types';
 import { PartnerPreference } from './types';
 import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
-import { LoginScreen } from './components/LoginScreen';
 import { ToastContainer, Toast, ToastType } from './components/Toast';
 import { yoloService } from './services/yoloService';
 import { apiService } from './services/api';
 import { socketService } from './services/socketService';
 import { PARTNER_VIDEOS } from './constants';
+import { isMobileDevice } from './utils';
 
 const App: React.FC = () => {
-  // Auth State
-  const [authState, setAuthState] = useState<AuthState>('unauthenticated');
-  const [user, setUser] = useState<User | null>(null);
-
   // Chat State
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [chatState, setChatState] = useState<ChatState>('idle');
@@ -57,23 +53,8 @@ const App: React.FC = () => {
   useEffect(() => {
     yoloService.loadModel().then(() => {
       setIsModelLoading(false);
-      showToast('Model loaded successfully', 'success');
+      showToast('Ready to chat!', 'success');
     });
-    
-    // Check for existing session
-    const checkSession = async () => {
-      try {
-        const user = await apiService.verifySession();
-        setUser(user);
-        setAuthState('authenticated');
-        showToast('Welcome back!', 'success');
-      } catch (error) {
-        // No valid session
-        apiService.clearToken();
-      }
-    };
-    
-    checkSession();
   }, [showToast]);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
@@ -164,7 +145,7 @@ const App: React.FC = () => {
 
 
   const findNext = useCallback(() => {
-    if (!isSocketConnected || !user || !settings) {
+    if (!isSocketConnected || !settings) {
       setError("Not connected to server. Please try again.");
       return;
     }
@@ -259,24 +240,31 @@ const App: React.FC = () => {
           return;
         }
       }
-
-      // Update user settings on backend
-      try {
-        await apiService.updateUserSettings(newSettings.identity, newSettings.country);
-      } catch (apiError) {
-        console.error('Failed to update user settings:', apiError);
-        // Continue anyway
-      }
       
-      // --- OPTIMIZATION: Request higher quality video ---
-      const videoConstraints: MediaTrackConstraints = {
+      // --- MOBILE DETECTION AND OPTIMIZATION ---
+      const isMobile = isMobileDevice();
+      
+      // Mobile-friendly video constraints
+      const videoConstraints: MediaTrackConstraints = isMobile ? {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
+        frameRate: { ideal: 24, max: 30 },
+        facingMode: 'user'
+      } : {
         width: { ideal: 1280 },
         height: { ideal: 720 },
         frameRate: { ideal: 30 },
         facingMode: 'user'
       };
       
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: videoConstraints, 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       setLocalStream(stream);
       localStreamRef.current = stream;
       findNext();
@@ -290,12 +278,17 @@ const App: React.FC = () => {
             message = 'No camera or microphone was found. Please connect a device and try again.';
           } else if (err.name === 'OverconstrainedError') {
             message = 'Your camera does not support the requested HD resolution. Trying with lower quality...';
-            // Try with lower quality
+            // Try with lower quality (mobile-friendly fallback)
             try {
-              const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                audio: true 
-              });
+              const isMobileFallback = isMobileDevice();
+              const fallbackConstraints = isMobileFallback ? {
+                video: { facingMode: 'user' }, // Let device choose resolution
+                audio: true
+              } : {
+                video: { width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: true
+              };
+              const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
               setLocalStream(fallbackStream);
               localStreamRef.current = fallbackStream;
               findNext();
@@ -453,7 +446,7 @@ const App: React.FC = () => {
 
   // Auto-reconnect logic
   useEffect(() => {
-    if (!isSocketConnected && authState === 'authenticated' && chatState !== 'idle') {
+    if (!isSocketConnected && chatState !== 'idle') {
       const attemptReconnect = () => {
         reconnectAttemptsRef.current += 1;
         if (reconnectAttemptsRef.current <= 5) {
@@ -480,7 +473,7 @@ const App: React.FC = () => {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isSocketConnected, authState, chatState, showToast]);
+  }, [isSocketConnected, chatState, showToast]);
 
   // Connection quality monitoring
   useEffect(() => {
@@ -554,6 +547,28 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [chatState, verificationStatus, findNext, stopChat, localStream]);
 
+  // Handle orientation changes and mobile viewport fixes
+  useEffect(() => {
+    const handleResize = () => {
+      // Fix iOS viewport height issue
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    const handleOrientationChange = () => {
+      setTimeout(handleResize, 100);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       stopMediaTracks(localStreamRef.current);
@@ -572,9 +587,19 @@ const App: React.FC = () => {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       
-      {authState === 'unauthenticated' ? (
-        <div className="animate-fadeIn">
-          <LoginScreen onLogin={handleLogin} />
+      <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown safe-area-top">
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
+            Connect<span className="text-blue-400">Sphere</span>
+          </h1>
+          {chatState !== 'idle' && (
+            <button
+              onClick={() => stopChat(false)}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30 text-sm sm:text-base touch-manipulation"
+            >
+              Stop
+            </button>
+          )}
         </div>
       ) : authState === 'authenticated' && user ? (
         <>
@@ -641,6 +666,31 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      </header>
+
+      <main className="flex-1 overflow-hidden animate-fadeIn">
+        {chatState === 'idle' ? (
+          <SettingsScreen onStart={startChat} error={error} />
+        ) : (
+          <ChatScreen
+            chatState={chatState}
+            localStream={localStream}
+            remoteStream={remoteStream}
+            remoteVideoRef={remoteVideoRef}
+            verificationStatus={verificationStatus}
+            messages={messages}
+            reportMessage={reportMessage}
+            onNext={findNext}
+            onStop={() => stopChat(false)}
+            onSendMessage={handleSendMessage}
+            onReport={handleReport}
+            matchId={currentMatchId}
+            isPartnerTyping={isPartnerTyping}
+            onTyping={handleTyping}
+            connectionQuality={connectionQuality}
+          />
+        )}
+      </main>
     </div>
   );
 };
