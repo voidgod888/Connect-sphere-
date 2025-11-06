@@ -112,24 +112,10 @@ const App: React.FC = () => {
     }
   }, [cleanupVerification, currentMatchId]);
 
-  const handleLogin = async () => {
-    try {
-      // Use mock authentication for now (can be updated to use Google OAuth)
-      const response = await apiService.authMock(
-        'demo.user@example.com',
-        'Demo User',
-        'male',
-        'Global'
-      );
-      setUser(response.user);
-      setAuthState('authenticated');
-      showToast('Successfully logged in!', 'success');
-    } catch (error) {
-      console.error('Login error:', error);
-      const errorMsg = 'Failed to login. Please try again.';
-      setError(errorMsg);
-      showToast(errorMsg, 'error');
-    }
+  const handleLogin = (user: User) => {
+    setUser(user);
+    setAuthState('authenticated');
+    showToast('Successfully logged in!', 'success');
   };
 
   const handleLogout = useCallback(async () => {
@@ -590,7 +576,7 @@ const App: React.FC = () => {
         <div className="animate-fadeIn">
           <LoginScreen onLogin={handleLogin} />
         </div>
-      ) : (
+      ) : user ? (
         <>
           <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
             <div className="container mx-auto px-4 py-3 flex items-center justify-between">

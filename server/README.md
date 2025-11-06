@@ -4,7 +4,7 @@ Backend API server for ConnectSphere video chat application.
 
 ## Features
 
-- User authentication (Google OAuth + Mock for development)
+- User authentication (Google OAuth and Apple Sign-In - mandatory)
 - Real-time partner matching
 - WebSocket-based chat messaging
 - WebRTC signaling for video connections
@@ -27,7 +27,11 @@ cp .env.example .env
 3. Configure environment variables:
 - `PORT`: Server port (default: 3001)
 - `CLIENT_URL`: Frontend URL (default: http://localhost:3000)
-- `GOOGLE_CLIENT_ID`: Google OAuth Client ID (optional for mock auth)
+- `GOOGLE_CLIENT_ID`: Google OAuth Client ID (required)
+- `APPLE_CLIENT_ID`: Apple Sign-In Client ID (optional but recommended)
+- `APPLE_TEAM_ID`: Apple Team ID (required if using Apple Sign-In)
+- `APPLE_KEY_ID`: Apple Key ID (required if using Apple Sign-In)
+- `APPLE_PRIVATE_KEY`: Apple Private Key (required if using Apple Sign-In)
 - `DATABASE_PATH`: Path to SQLite database file
 
 4. Start the server:
@@ -40,8 +44,8 @@ npm start    # Production mode
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/google` - Authenticate with Google token
-- `POST /api/auth/mock` - Mock authentication for development
+- `POST /api/auth/google` - Authenticate with Google ID token (mandatory)
+- `POST /api/auth/apple` - Authenticate with Apple identity token (optional)
 - `POST /api/auth/logout` - Logout and invalidate session
 - `GET /api/auth/verify` - Verify current session token
 

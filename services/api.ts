@@ -64,10 +64,10 @@ class ApiService {
     return response.json();
   }
 
-  async authGoogle(token: string, identity?: string, country?: string): Promise<AuthResponse> {
+  async authGoogle(idToken: string, identity?: string, country?: string): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>('/auth/google', {
       method: 'POST',
-      body: JSON.stringify({ token, identity, country }),
+      body: JSON.stringify({ token: idToken, identity, country }),
     });
     if (response.token) {
       this.setToken(response.token);
@@ -75,10 +75,10 @@ class ApiService {
     return response;
   }
 
-  async authMock(email: string, name?: string, identity?: string, country?: string): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/mock', {
+  async authApple(identityToken: string, identity?: string, country?: string): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>('/auth/apple', {
       method: 'POST',
-      body: JSON.stringify({ email, name, identity, country }),
+      body: JSON.stringify({ identity_token: identityToken, identity, country }),
     });
     if (response.token) {
       this.setToken(response.token);

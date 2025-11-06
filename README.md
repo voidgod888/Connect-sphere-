@@ -25,7 +25,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 
 ## ✨ Features
 
-- 🔐 **User Authentication** - Google OAuth + Mock authentication for development
+- 🔐 **User Authentication** - Google OAuth and Apple Sign-In (mandatory)
 - 🎥 **Real-time Video Chat** - Partner matching with video streaming
 - 💬 **WebSocket-based Chat** - Real-time text messaging during video calls
 - 🎯 **Partner Preference Filtering** - Gender-based matching (Male/Female/Everyone)
@@ -122,7 +122,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 - `messages`: Chat message history
 
 **Key Functions**:
-- `handleLogin()`: Mock authentication (can be extended for Google OAuth)
+- `handleLogin()`: OAuth authentication handler (Google/Apple)
 - `handleLogout()`: Cleanup and session termination
 - `startChat()`: Initialize video permissions and start matching
 - `findNext()`: Join matching queue and find new partner
@@ -134,8 +134,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 **Purpose**: User authentication interface
 
 **Features**:
-- Mock login button (for development)
-- Can be extended for Google OAuth integration
+- Google OAuth Sign-In button
+- Apple Sign-In button
 - Displays app branding
 
 #### `SettingsScreen.tsx`
@@ -213,8 +213,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 **Purpose**: HTTP client for backend API communication
 
 **Methods**:
-- `authGoogle(token, identity?, country?)`: Google OAuth authentication
-- `authMock(email, name?, identity?, country?)`: Mock authentication
+- `authGoogle(idToken, identity?, country?)`: Google OAuth authentication
+- `authApple(identityToken, identity?, country?)`: Apple Sign-In authentication
 - `logout()`: End session
 - `verifySession()`: Check if session is valid
 - `getCurrentUser()`: Get user profile
@@ -307,16 +307,16 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsi
 
 #### `server/routes/auth.js` - Authentication Routes
 **Endpoints**:
-- `POST /api/auth/google`: Google OAuth authentication
-- `POST /api/auth/mock`: Mock authentication (development)
+- `POST /api/auth/google`: Google OAuth authentication (mandatory)
+- `POST /api/auth/apple`: Apple Sign-In authentication (optional)
 - `POST /api/auth/logout`: Logout and invalidate session
 - `GET /api/auth/verify`: Verify session token
 
 **Flow**:
-1. Verify credentials (Google token or mock)
+1. Verify OAuth credentials (Google ID token or Apple identity token)
 2. Find or create user
 3. Create session
-4. Return JWT token
+4. Return session token
 
 #### `server/routes/users.js` - User Routes
 **Endpoints**:
@@ -401,14 +401,13 @@ Authenticate with Google OAuth token.
 }
 ```
 
-#### `POST /api/auth/mock`
-Mock authentication for development.
+#### `POST /api/auth/apple`
+Apple Sign-In authentication.
 
 **Request Body**:
 ```json
 {
-  "email": "user@example.com",
-  "name": "Demo User",
+  "identity_token": "apple_identity_token_here",
   "identity": "male",
   "country": "Global"
 }
@@ -661,7 +660,11 @@ Create `server/.env` file:
 ```bash
 PORT=3001
 CLIENT_URL=http://localhost:3000
-GOOGLE_CLIENT_ID=your_google_client_id_here  # Optional for mock auth
+GOOGLE_CLIENT_ID=your_google_client_id_here  # Required
+APPLE_CLIENT_ID=your_apple_client_id_here  # Optional
+APPLE_TEAM_ID=your_apple_team_id_here  # Required if using Apple Sign-In
+APPLE_KEY_ID=your_apple_key_id_here  # Required if using Apple Sign-In
+APPLE_PRIVATE_KEY=your_apple_private_key_here  # Required if using Apple Sign-In
 DATABASE_PATH=./data/connectsphere.db
 ```
 
@@ -778,7 +781,7 @@ DATABASE_PATH=./data/connectsphere.db     # SQLite database path
 
 3. **Database**: Uses SQLite by default. Can be swapped for PostgreSQL/MySQL for production.
 
-4. **Authentication**: Mock authentication is enabled by default. Google OAuth requires proper client ID configuration.
+4. **Authentication**: Google OAuth is mandatory. Apple Sign-In is optional but recommended. Both require proper client ID configuration.
 
 ### Production Considerations
 
@@ -787,9 +790,9 @@ DATABASE_PATH=./data/connectsphere.db     # SQLite database path
 3. **Database Migration**: Switch to PostgreSQL for better scalability
 4. **HTTPS**: Required for WebRTC and camera access in production
 5. **STUN/TURN Servers**: Configure for NAT traversal in WebRTC
-6. **Rate Limiting**: Add rate limiting to prevent abuse
+6. **Rate Limiting**: ✅ Implemented - Rate limiting added to prevent abuse
 7. **Monitoring**: Add logging and monitoring (e.g., Winston, Sentry)
-8. **Security**: Implement CSRF protection, input validation, and sanitization
+8. **Security**: ✅ Implemented - CSRF protection via Helmet, input validation, and sanitization added
 
 ### Known Issues Fixed
 

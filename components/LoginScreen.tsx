@@ -1,8 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { apiService } from '../services/api';
 
 interface LoginScreenProps {
-  onLogin: () => void;
+  onLogin: (user: { id: string; name: string; email: string }) => void;
 }
 
 const GoogleIcon: React.FC = () => (
@@ -12,6 +13,12 @@ const GoogleIcon: React.FC = () => (
     <path fill="#FBBC05" d="M11.9 20.2c-1.03-3.08-1.03-6.52 0-9.6l-7.69-5.99C1.65 10.33 0 16.95 0 24c0 7.05 1.65 13.67 4.21 19.39l7.69-5.99c-1.03-3.08-1.03-6.52 0-9.6z"></path>
     <path fill="#EA4335" d="M24 47c5.83 0 10.91-1.89 14.59-5.18l-7.38-5.75c-2.49 1.65-5.59 2.64-9.21 2.64-5.68 0-10.52-4.43-12.1-10.21l-7.69 5.99C7.22 41.57 14.85 47 24 47z"></path>
     <path fill="none" d="M0 0h48v48H0z"></path>
+  </svg>
+);
+
+const AppleIcon: React.FC = () => (
+  <svg className="w-6 h-6 mr-3 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
   </svg>
 );
 
@@ -25,6 +32,115 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       top: Math.random() * 100,
     }))
   );
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const googleInitializedRef = useRef(false);
+
+  const handleGoogleCredentialResponse = async (response: any) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (!response.credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      const authResponse = await apiService.authGoogle(response.credential);
+      onLogin(authResponse.user);
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Failed to authenticate with Google. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Wait for Google Identity Services to load
+    const initGoogleSignIn = () => {
+      if (typeof window !== 'undefined' && (window as any).google && googleButtonRef.current && !googleInitializedRef.current) {
+        try {
+          (window as any).google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse,
+          });
+
+          (window as any).google.accounts.id.renderButton(
+            googleButtonRef.current,
+            {
+              theme: 'outline',
+              size: 'large',
+              width: '100%',
+              text: 'signin_with',
+            }
+          );
+          googleInitializedRef.current = true;
+        } catch (err) {
+          console.error('Failed to initialize Google Sign-In:', err);
+        }
+      }
+    };
+
+    // Check if already loaded
+    if (typeof window !== 'undefined' && (window as any).google) {
+      initGoogleSignIn();
+    } else {
+      // Wait for script to load
+      const checkInterval = setInterval(() => {
+        if (typeof window !== 'undefined' && (window as any).google) {
+          initGoogleSignIn();
+          clearInterval(checkInterval);
+        }
+      }, 100);
+
+      // Cleanup after 10 seconds
+      setTimeout(() => clearInterval(checkInterval), 10000);
+    }
+  }, []);
+
+  const handleGoogleLogin = () => {
+    if (typeof window !== 'undefined' && (window as any).google) {
+      (window as any).google.accounts.id.prompt();
+    } else {
+      setError('Google Sign-In is not available. Please check your configuration.');
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Check if Apple Sign-In is available
+      if (typeof window !== 'undefined' && (window as any).AppleID) {
+        const { AppleID } = window as any;
+        
+        AppleID.auth.init({
+          clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
+          scope: 'name email',
+          redirectURI: window.location.origin,
+          usePopup: true,
+        });
+
+        const response = await AppleID.auth.signIn();
+        
+        if (response && response.id_token) {
+          const authResponse = await apiService.authApple(response.id_token);
+          onLogin(authResponse.user);
+        } else {
+          throw new Error('No identity token received from Apple');
+        }
+      } else {
+        // Fallback: Show instructions for Apple Sign-In
+        setError('Apple Sign-In requires additional configuration. Please use Google Sign-In for now.');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      console.error('Apple login error:', err);
+      setError(err.message || 'Failed to authenticate with Apple. Please try again.');
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="h-full w-full relative flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900 overflow-hidden">
@@ -69,17 +185,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         </div>
 
         <div className="animate-fadeInUp" style={{ animationDelay: '0.3s', opacity: 0, animationFillMode: 'forwards' }}>
-          <button
-            onClick={onLogin}
-            className="family group relative inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-4 px-10 rounded-xl shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden"
-          >
-            <span className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-            <GoogleIcon />
-            <span className="relative z-10">Sign in with Google</span>
-          </button>
+          <div className="space-y-4">
+            <div ref={googleButtonRef} className="w-full flex justify-center">
+              {/* Google button will be rendered here by Google Identity Services */}
+            </div>
+
+            <button
+              onClick={handleAppleLogin}
+              disabled={isLoading}
+              className="group relative inline-flex items-center justify-center w-full bg-black text-white font-semibold py-4 px-10 rounded-xl shadow-2xl hover:shadow-gray-800/20 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-50 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-gray-900 to-black opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <AppleIcon />
+              <span className="relative z-10">
+                {isLoading ? 'Signing in...' : 'Sign in with Apple'}
+              </span>
+            </button>
+          </div>
+          
+          {error && (
+            <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm animate-fadeIn">
+              {error}
+            </div>
+          )}
           
           <p className="text-xs text-gray-400 mt-8 animate-fadeIn" style={{ animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}>
-            A Google account is required to ensure a safe and moderated community.
+            Sign in with Google or Apple to ensure a safe and moderated community.
           </p>
         </div>
       </div>

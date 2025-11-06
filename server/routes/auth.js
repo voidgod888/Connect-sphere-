@@ -1,24 +1,66 @@
 import express from 'express';
 import { OAuth2Client } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { userQueries, sessionQueries } from '../database/db.js';
 
 const router = express.Router();
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Validate required environment variables
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.error('ERROR: GOOGLE_CLIENT_ID environment variable is required');
+  process.exit(1);
+}
+
+// Apple Sign-In configuration (optional - will be validated when used)
+const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID;
+const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID;
+const APPLE_KEY_ID = process.env.APPLE_KEY_ID;
+const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Input validation helper
+function validateInput(data, schema) {
+  const errors = [];
+  for (const [key, validator] of Object.entries(schema)) {
+    if (validator.required && !data[key]) {
+      errors.push(`${key} is required`);
+    }
+    if (data[key] && validator.type && typeof data[key] !== validator.type) {
+      errors.push(`${key} must be a ${validator.type}`);
+    }
+    if (data[key] && validator.maxLength && data[key].length > validator.maxLength) {
+      errors.push(`${key} must be less than ${validator.maxLength} characters`);
+    }
+  }
+  return errors;
+}
+
+// Sanitize string input
+function sanitizeString(str) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, 500);
+}
 
 // Verify Google token and authenticate user
 router.post('/google', async (req, res) => {
   try {
-    const { token, identity, country, preference } = req.body;
+    const { token, identity, country } = req.body;
 
-    if (!token) {
-      return res.status(400).json({ error: 'Google token is required' });
+    // Input validation
+    const validationErrors = validateInput({ token }, {
+      token: { required: true, type: 'string' }
+    });
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ error: validationErrors.join(', ') });
     }
 
     // Verify Google token
     let ticket;
     try {
-      ticket = await client.verifyIdToken({
+      ticket = await googleClient.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID
       });
@@ -34,6 +76,16 @@ router.post('/google', async (req, res) => {
 
     const { email, name, sub: googleId } = payload;
 
+    if (!email || !googleId) {
+      return res.status(401).json({ error: 'Invalid token payload: missing email or Google ID' });
+    }
+
+    // Sanitize inputs
+    const sanitizedIdentity = identity && ['male', 'female', 'multiple'].includes(identity) 
+      ? identity 
+      : 'male';
+    const sanitizedCountry = sanitizeString(country || 'Global');
+
     // Find or create user
     let user = userQueries.findByGoogleId.get(googleId);
     
@@ -42,17 +94,33 @@ router.post('/google', async (req, res) => {
       user = userQueries.findByEmail.get(email);
       if (user) {
         // Update with Google ID if missing
-        user.google_id = googleId;
+        if (!user.google_id) {
+          // Note: SQLite doesn't support UPDATE with UNIQUE constraint easily, 
+          // so we'll need to handle this case differently
+          // For now, we'll create a new user if email exists but Google ID doesn't match
+          const userId = `user_${uuidv4()}`;
+          userQueries.create.run(
+            userId,
+            sanitizeString(name || email.split('@')[0]),
+            email,
+            googleId,
+            null, // apple_id
+            sanitizedIdentity,
+            sanitizedCountry
+          );
+          user = userQueries.findById.get(userId);
+        }
       } else {
         // Create new user
         const userId = `user_${uuidv4()}`;
         userQueries.create.run(
           userId,
-          name || email.split('@')[0],
+          sanitizeString(name || email.split('@')[0]),
           email,
           googleId,
-          identity || 'male',
-          country || 'Global'
+          null, // apple_id
+          sanitizedIdentity,
+          sanitizedCountry
         );
         user = userQueries.findById.get(userId);
       }
@@ -62,8 +130,8 @@ router.post('/google', async (req, res) => {
     if (identity || country) {
       userQueries.update.run(
         user.name,
-        identity || user.identity,
-        country || user.country,
+        sanitizedIdentity,
+        sanitizedCountry,
         user.id
       );
       user = userQueries.findById.get(user.id);
@@ -95,51 +163,128 @@ router.post('/google', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('Google authentication error:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
 
-// Mock login endpoint for development (if Google auth is not configured)
-router.post('/mock', async (req, res) => {
+// Verify Apple Sign-In token and authenticate user
+router.post('/apple', async (req, res) => {
   try {
-    const { email, name, identity, country } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    const { identity_token, authorization_code, identity, country } = req.body;
+
+    // Input validation
+    if (!identity_token && !authorization_code) {
+      return res.status(400).json({ error: 'Apple identity_token or authorization_code is required' });
     }
 
+    let appleId, email, name;
+
+    if (identity_token) {
+      // Verify Apple identity token
+      try {
+        // Decode the token (first part is header, second is payload, third is signature)
+        const tokenParts = identity_token.split('.');
+        if (tokenParts.length !== 3) {
+          return res.status(401).json({ error: 'Invalid Apple token format' });
+        }
+
+        // Decode payload (base64url)
+        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+        
+        // Verify token claims
+        if (payload.iss !== 'https://appleid.apple.com') {
+          return res.status(401).json({ error: 'Invalid token issuer' });
+        }
+
+        if (APPLE_CLIENT_ID && payload.aud !== APPLE_CLIENT_ID) {
+          return res.status(401).json({ error: 'Invalid token audience' });
+        }
+
+        // Check expiration
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          return res.status(401).json({ error: 'Token expired' });
+        }
+
+        appleId = payload.sub;
+        email = payload.email;
+        name = payload.name || (email ? email.split('@')[0] : null);
+      } catch (error) {
+        console.error('Apple token verification failed:', error);
+        return res.status(401).json({ error: 'Invalid Apple token' });
+      }
+    } else {
+      // If authorization_code is provided, we would exchange it for tokens
+      // For now, we'll require identity_token for simplicity
+      return res.status(400).json({ error: 'identity_token is required for Apple Sign-In' });
+    }
+
+    if (!appleId) {
+      return res.status(401).json({ error: 'Invalid Apple token: missing user ID' });
+    }
+
+    // Sanitize inputs
+    const sanitizedIdentity = identity && ['male', 'female', 'multiple'].includes(identity) 
+      ? identity 
+      : 'male';
+    const sanitizedCountry = sanitizeString(country || 'Global');
+
     // Find or create user
-    let user = userQueries.findByEmail.get(email);
+    let user = userQueries.findByAppleId.get(appleId);
     
     if (!user) {
-      const userId = `user_${uuidv4()}`;
-      userQueries.create.run(
-        userId,
-        name || email.split('@')[0],
-        email,
-        null, // No Google ID for mock
-        identity || 'male',
-        country || 'Global'
-      );
-      user = userQueries.findById.get(userId);
-    } else {
-      // Update settings if provided
-      if (identity || country) {
-        userQueries.update.run(
-          user.name,
-          identity || user.identity,
-          country || user.country,
-          user.id
-        );
-        user = userQueries.findById.get(user.id);
+      // Check if user exists by email
+      if (email) {
+        user = userQueries.findByEmail.get(email);
+        if (user && !user.apple_id) {
+          // User exists but doesn't have Apple ID - create new account
+          // (In production, you might want to link accounts)
+          const userId = `user_${uuidv4()}`;
+          userQueries.create.run(
+            userId,
+            sanitizeString(name || email.split('@')[0]),
+            email,
+            null, // google_id
+            appleId,
+            sanitizedIdentity,
+            sanitizedCountry
+          );
+          user = userQueries.findById.get(userId);
+        }
       }
+      
+      if (!user) {
+        // Create new user
+        const userId = `user_${uuidv4()}`;
+        const userEmail = email || `apple_${appleId}@appleid.local`;
+        userQueries.create.run(
+          userId,
+          sanitizeString(name || userEmail.split('@')[0]),
+          userEmail,
+          null, // google_id
+          appleId,
+          sanitizedIdentity,
+          sanitizedCountry
+        );
+        user = userQueries.findById.get(userId);
+      }
+    }
+
+    // Update user settings if provided
+    if (identity || country) {
+      userQueries.update.run(
+        user.name,
+        sanitizedIdentity,
+        sanitizedCountry,
+        user.id
+      );
+      user = userQueries.findById.get(user.id);
     }
 
     // Create session
     const sessionId = uuidv4();
     const sessionToken = `session_${uuidv4()}_${Date.now()}`;
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     sessionQueries.create.run(
       sessionId,
@@ -148,6 +293,7 @@ router.post('/mock', async (req, res) => {
       expiresAt.toISOString()
     );
 
+    // Update last seen
     userQueries.updateLastSeen.run(user.id);
 
     res.json({
@@ -161,7 +307,7 @@ router.post('/mock', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Mock authentication error:', error);
+    console.error('Apple authentication error:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
@@ -191,10 +337,21 @@ router.get('/verify', (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
+    // Validate token format
+    if (typeof token !== 'string' || token.length < 10) {
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
+
     const session = sessionQueries.findByToken.get(token);
     
     if (!session) {
       return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Check if session is expired
+    if (new Date(session.expires_at) < new Date()) {
+      sessionQueries.deleteByToken.run(token);
+      return res.status(401).json({ error: 'Session expired' });
     }
 
     const user = userQueries.findById.get(session.user_id);

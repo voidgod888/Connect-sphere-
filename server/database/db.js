@@ -20,10 +20,12 @@ export function initDatabase() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       google_id TEXT UNIQUE,
+      apple_id TEXT UNIQUE,
       identity TEXT CHECK(identity IN ('male', 'female', 'multiple')) NOT NULL,
       country TEXT NOT NULL DEFAULT 'Global',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+      CHECK((google_id IS NOT NULL) OR (apple_id IS NOT NULL))
     )
   `);
 
@@ -117,13 +119,14 @@ export const database = db;
 // Helper functions
 export const userQueries = {
   create: db.prepare(`
-    INSERT INTO users (id, name, email, google_id, identity, country)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO users (id, name, email, google_id, apple_id, identity, country)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   
   findByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
   findById: db.prepare('SELECT * FROM users WHERE id = ?'),
   findByGoogleId: db.prepare('SELECT * FROM users WHERE google_id = ?'),
+  findByAppleId: db.prepare('SELECT * FROM users WHERE apple_id = ?'),
   
   update: db.prepare(`
     UPDATE users 
