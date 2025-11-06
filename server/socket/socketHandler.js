@@ -1,0 +1,334 @@
+import { v4 as uuidv4 } from 'uuid';
+import { sessionQueries, userQueries, matchQueries, messageQueries, blockQueries, reportQueries } from '../database/db.js';
+import { matchingService } from '../services/matching.js';
+
+const activeSockets = new Map(); // Map<socketId, userId>
+const userSockets = new Map(); // Map<userId, socketId>
+const matchSocketPairs = new Map(); // Map<matchId, { socket1, socket2 }>
+
+function authenticateSocket(socket, next) {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+
+  const session = sessionQueries.findByToken.get(token);
+  
+  if (!session) {
+    return next(new Error('Authentication error: Invalid token'));
+  }
+
+  const user = userQueries.findById.get(session.user_id);
+  
+  if (!user) {
+    return next(new Error('Authentication error: User not found'));
+  }
+
+  socket.userId = user.id;
+  socket.user = user;
+  next();
+}
+
+export function socketHandler(socket, io) {
+  // Authenticate socket connection
+  socket.on('authenticate', (token, callback) => {
+    try {
+      const session = sessionQueries.findByToken.get(token);
+      
+      if (!session) {
+        callback({ error: 'Invalid token' });
+        return;
+      }
+
+      const user = userQueries.findById.get(session.user_id);
+      
+      if (!user) {
+        callback({ error: 'User not found' });
+        return;
+      }
+
+      socket.userId = user.id;
+      socket.user = user;
+      activeSockets.set(socket.id, user.id);
+      userSockets.set(user.id, socket.id);
+
+      userQueries.updateLastSeen.run(user.id);
+
+      callback({ success: true, user });
+    } catch (error) {
+      console.error('Socket authentication error:', error);
+      callback({ error: 'Authentication failed' });
+    }
+  });
+
+  // Join waiting queue
+  socket.on('join-queue', (data, callback) => {
+    try {
+      if (!socket.userId) {
+        callback({ error: 'Not authenticated' });
+        return;
+      }
+
+      const { preference, settings } = data;
+
+      matchingService.addWaitingUser(socket.userId, socket.id, preference, settings);
+
+      // Try to find a match immediately
+      const match = matchingService.findMatch(socket.userId, preference, settings);
+
+      if (match) {
+        // Found a match!
+        matchingService.removeWaitingUser(socket.userId);
+        matchingService.removeWaitingUser(match.userId);
+
+        // Create match record
+        const matchId = `match_${uuidv4()}`;
+        matchQueries.create.run(matchId, socket.userId, match.userId);
+
+        // Store socket pair
+        matchSocketPairs.set(matchId, {
+          socket1: socket.id,
+          socket2: match.socketId,
+          user1Id: socket.userId,
+          user2Id: match.userId
+        });
+
+        // Notify both users
+        const user1 = userQueries.findById.get(socket.userId);
+        const user2 = userQueries.findById.get(match.userId);
+
+        socket.emit('match-found', {
+          matchId,
+          partner: {
+            id: user2.id,
+            name: user2.name
+          }
+        });
+
+        const partnerSocket = io.sockets.sockets.get(match.socketId);
+        if (partnerSocket) {
+          partnerSocket.emit('match-found', {
+            matchId,
+            partner: {
+              id: user1.id,
+              name: user1.name
+            }
+          });
+        }
+
+        callback({ success: true, matched: true, matchId });
+      } else {
+        callback({ success: true, matched: false, waiting: matchingService.getWaitingCount() });
+      }
+
+    } catch (error) {
+      console.error('Join queue error:', error);
+      callback({ error: 'Failed to join queue' });
+    }
+  });
+
+  // Leave queue
+  socket.on('leave-queue', () => {
+    if (socket.userId) {
+      matchingService.removeWaitingUser(socket.userId);
+    }
+  });
+
+  // Send message
+  socket.on('send-message', (data, callback) => {
+    try {
+      if (!socket.userId) {
+        callback({ error: 'Not authenticated' });
+        return;
+      }
+
+      const { matchId, text } = data;
+
+      if (!matchId || !text) {
+        callback({ error: 'Match ID and text are required' });
+        return;
+      }
+
+      // Verify user is part of this match
+      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+      if (!match || match.id !== matchId) {
+        callback({ error: 'Invalid match' });
+        return;
+      }
+
+      // Save message
+      const messageId = `msg_${uuidv4()}`;
+      messageQueries.create.run(messageId, matchId, socket.userId, text);
+
+      // Get partner socket
+      const pair = matchSocketPairs.get(matchId);
+      if (!pair) {
+        callback({ error: 'Match session not found' });
+        return;
+      }
+
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      
+      const message = {
+        id: messageId,
+        text,
+        sender: 'user',
+        createdAt: new Date().toISOString()
+      };
+
+      // Send to partner
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('new-message', {
+          ...message,
+          sender: 'partner'
+        });
+      }
+
+      callback({ success: true, message });
+
+    } catch (error) {
+      console.error('Send message error:', error);
+      callback({ error: 'Failed to send message' });
+    }
+  });
+
+  // WebRTC signaling
+  socket.on('offer', (data) => {
+    const { matchId, offer } = data;
+    const pair = matchSocketPairs.get(matchId);
+    if (pair) {
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('offer', { offer });
+      }
+    }
+  });
+
+  socket.on('answer', (data) => {
+    const { matchId, answer } = data;
+    const pair = matchSocketPairs.get(matchId);
+    if (pair) {
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('answer', { answer });
+      }
+    }
+  });
+
+  socket.on('ice-candidate', (data) => {
+    const { matchId, candidate } = data;
+    const pair = matchSocketPairs.get(matchId);
+    if (pair) {
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('ice-candidate', { candidate });
+      }
+    }
+  });
+
+  // End match
+  socket.on('end-match', (data, callback) => {
+    try {
+      if (!socket.userId) {
+        callback({ error: 'Not authenticated' });
+        return;
+      }
+
+      const { matchId } = data || {};
+      const match = matchId ? 
+        matchQueries.findActiveByUserId.get(socket.userId, socket.userId) :
+        matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+
+      if (!match) {
+        callback({ error: 'No active match found' });
+        return;
+      }
+
+      // End match
+      matchQueries.endMatch.run('ended', match.id);
+
+      const pair = matchSocketPairs.get(match.id);
+      if (pair) {
+        const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+        const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+        if (partnerSocket) {
+          partnerSocket.emit('match-ended');
+        }
+        
+        matchSocketPairs.delete(match.id);
+      }
+
+      callback({ success: true });
+
+    } catch (error) {
+      console.error('End match error:', error);
+      callback({ error: 'Failed to end match' });
+    }
+  });
+
+  // Report user
+  socket.on('report-user', (data, callback) => {
+    try {
+      if (!socket.userId) {
+        callback({ error: 'Not authenticated' });
+        return;
+      }
+
+      const { reportedId, reason, matchId } = data;
+
+      if (!reportedId) {
+        callback({ error: 'Reported user ID is required' });
+        return;
+      }
+
+      // Create report
+      const reportId = `report_${uuidv4()}`;
+      reportQueries.create.run(reportId, socket.userId, reportedId, reason || null, matchId || null);
+
+      // Block user
+      const blockId = `block_${uuidv4()}`;
+      try {
+        blockQueries.create.run(blockId, socket.userId, reportedId);
+      } catch (error) {
+        // Block might already exist, ignore
+      }
+
+      callback({ success: true });
+
+    } catch (error) {
+      console.error('Report user error:', error);
+      callback({ error: 'Failed to report user' });
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      matchingService.removeWaitingUser(socket.userId);
+      activeSockets.delete(socket.id);
+      userSockets.delete(socket.userId);
+
+      // End any active matches
+      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+      if (match) {
+        matchQueries.endMatch.run('disconnected', match.id);
+        
+        const pair = matchSocketPairs.get(match.id);
+        if (pair) {
+          const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+          const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+          if (partnerSocket) {
+            partnerSocket.emit('match-ended');
+          }
+          
+          matchSocketPairs.delete(match.id);
+        }
+      }
+    }
+  });
+}
