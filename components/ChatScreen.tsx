@@ -20,6 +20,10 @@ interface ChatScreenProps {
   onStop: () => void;
   onSendMessage: (text: string) => void;
   onReport: () => void;
+  matchId?: string | null;
+  isPartnerTyping?: boolean;
+  onTyping?: (isTyping: boolean) => void;
+  connectionQuality?: 'excellent' | 'good' | 'fair' | 'poor';
 }
 
 const VerificationOverlay: React.FC<{ status: VerificationStatus }> = ({ status }) => {
@@ -91,7 +95,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onNext, 
   onStop, 
   onSendMessage, 
-  onReport 
+  onReport,
+  matchId,
+  isPartnerTyping = false,
+  onTyping,
+  connectionQuality = 'excellent'
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
@@ -134,9 +142,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           
           {/* Connection status indicator */}
           {chatState === 'connected' && verificationStatus === 'verified' && (
-            <div className="absolute top-4 right-4 flex items-center gap-2 bg-green-500/20 backdrop-blur-sm px-3 py-2 rounded-full border border-green-500/50 animate-fadeInDown z-20">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm text-green-300 font-medium">Connected</span>
+            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+              <div className="flex items-center gap-2 bg-green-500/20 backdrop-blur-sm px-3 py-2 rounded-full border border-green-500/50 animate-fadeInDown">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-300 font-medium">Connected</span>
+              </div>
+              {connectionQuality && (
+                <div className={`flex items-center gap-2 backdrop-blur-sm px-3 py-1.5 rounded-full border animate-fadeInDown text-xs font-medium ${
+                  connectionQuality === 'excellent' ? 'bg-green-500/20 border-green-500/50 text-green-300' :
+                  connectionQuality === 'good' ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' :
+                  connectionQuality === 'fair' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' :
+                  'bg-red-500/20 border-red-500/50 text-red-300'
+                }`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    connectionQuality === 'excellent' ? 'bg-green-400' :
+                    connectionQuality === 'good' ? 'bg-blue-400' :
+                    connectionQuality === 'fair' ? 'bg-yellow-400' :
+                    'bg-red-400'
+                  }`}></div>
+                  <span>{connectionQuality.charAt(0).toUpperCase() + connectionQuality.slice(1)}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -171,8 +197,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             Chat
           </h3>
         </div>
-        <ChatHistory messages={messages} />
-        <ChatInput onSendMessage={onSendMessage} />
+        <ChatHistory messages={messages} isPartnerTyping={isPartnerTyping} />
+        <ChatInput onSendMessage={onSendMessage} onTyping={onTyping} matchId={matchId} />
       </div>
     </div>
   );

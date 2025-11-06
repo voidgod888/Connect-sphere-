@@ -33,6 +33,10 @@ const App: React.FC = () => {
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'fair' | 'poor'>('excellent');
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<number | null>(null);
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -262,7 +266,9 @@ const App: React.FC = () => {
           setIsSocketConnected(true);
         } catch (socketError) {
           console.error('Socket connection error:', socketError);
-          setError('Failed to connect to server. Please check your connection.');
+          const errorMsg = 'Failed to connect to server. Please check your connection and try again.';
+          setError(errorMsg);
+          showToast(errorMsg, 'error');
           setChatState('idle');
           return;
         }
@@ -292,14 +298,35 @@ const App: React.FC = () => {
       console.error('Error accessing media devices.', err);
       let message = `Could not access camera/microphone. Please check your browser permissions.`;
       if (err instanceof DOMException) {
-          if (err.name === 'NotAllowedError') message = 'Camera and microphone access was denied. Please enable it in your browser settings.';
-          else if (err.name === 'NotFoundError') message = 'No camera or microphone was found.';
-          else if (err.name === 'OverconstrainedError') message = 'Your camera does not support the requested HD resolution. The application will not be able to start.';
+          if (err.name === 'NotAllowedError') {
+            message = 'Camera and microphone access was denied. Please enable it in your browser settings and refresh the page.';
+          } else if (err.name === 'NotFoundError') {
+            message = 'No camera or microphone was found. Please connect a device and try again.';
+          } else if (err.name === 'OverconstrainedError') {
+            message = 'Your camera does not support the requested HD resolution. Trying with lower quality...';
+            // Try with lower quality
+            try {
+              const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+                audio: true 
+              });
+              setLocalStream(fallbackStream);
+              localStreamRef.current = fallbackStream;
+              findNext();
+              showToast('Using lower video quality', 'info');
+              return;
+            } catch (fallbackErr) {
+              message = 'Could not access camera/microphone with any quality settings.';
+            }
+          } else if (err.name === 'NotReadableError') {
+            message = 'Camera or microphone is already in use by another application.';
+          }
       }
       setError(message);
+      showToast(message, 'error');
       setChatState('idle');
     }
-  }, [isModelLoading, findNext, isSocketConnected]);
+  }, [isModelLoading, findNext, isSocketConnected, showToast]);
 
   const handleReport = () => {
     if (!currentPartner || !currentMatchId) return;
@@ -325,15 +352,34 @@ const App: React.FC = () => {
   const handleSendMessage = (text: string) => {
     if (!text.trim() || !currentMatchId) return;
 
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, text, sender: 'user' };
+    // Sanitize input to prevent XSS
+    const sanitizedText = text.trim().slice(0, 500);
+    
+    const userMessage: ChatMessage = { 
+      id: `user-${Date.now()}`, 
+      text: sanitizedText, 
+      sender: 'user',
+      timestamp: new Date().toISOString()
+    };
     setMessages(prev => [...prev, userMessage]);
 
-    socketService.sendMessage(currentMatchId, text, (response) => {
+    socketService.sendMessage(currentMatchId, sanitizedText, (response) => {
       if (response.error) {
         console.error('Send message error:', response.error);
+        const errorMsg = response.error.includes('Rate limit') 
+          ? 'You\'re sending messages too quickly. Please slow down.'
+          : 'Failed to send message. Please try again.';
+        showToast(errorMsg, 'error');
+        // Remove the optimistic message if it failed
+        setMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
       }
     });
   };
+
+  const handleTyping = useCallback((isTyping: boolean) => {
+    if (!currentMatchId) return;
+    socketService.sendTyping(currentMatchId, isTyping);
+  }, [currentMatchId]);
   
   // Socket event listeners
   useEffect(() => {
@@ -358,9 +404,14 @@ const App: React.FC = () => {
       const chatMessage: ChatMessage = {
         id: event.id,
         text: event.text,
-        sender: event.sender === 'partner' ? 'partner' : 'user'
+        sender: event.sender === 'partner' ? 'partner' : 'user',
+        timestamp: event.createdAt || new Date().toISOString()
       };
       setMessages(prev => [...prev, chatMessage]);
+    };
+
+    const handlePartnerTyping = (event: { isTyping: boolean }) => {
+      setIsPartnerTyping(event.isTyping);
     };
 
     const handleMatchEnded = () => {
@@ -374,11 +425,13 @@ const App: React.FC = () => {
     socketService.onMatchFound(handleMatchFound);
     socketService.onMessage(handleNewMessage);
     socketService.onMatchEnded(handleMatchEnded);
+    socketService.onTyping(handlePartnerTyping);
 
     return () => {
       socketService.offMatchFound(handleMatchFound);
       socketService.offMessage(handleNewMessage);
       socketService.offMatchEnded(handleMatchEnded);
+      socketService.offTyping(handlePartnerTyping);
     };
   }, [isSocketConnected, blockedPartners, cleanupVerification]);
 
@@ -412,10 +465,116 @@ const App: React.FC = () => {
     return cleanupVerification;
   }, [chatState, remoteStream, settings, findNext, cleanupVerification]);
 
+  // Auto-reconnect logic
+  useEffect(() => {
+    if (!isSocketConnected && authState === 'authenticated' && chatState !== 'idle') {
+      const attemptReconnect = () => {
+        reconnectAttemptsRef.current += 1;
+        if (reconnectAttemptsRef.current <= 5) {
+          showToast(`Reconnecting... (${reconnectAttemptsRef.current}/5)`, 'info');
+          socketService.connect()
+            .then(() => {
+              setIsSocketConnected(true);
+              reconnectAttemptsRef.current = 0;
+              showToast('Reconnected successfully!', 'success');
+            })
+            .catch(() => {
+              reconnectTimeoutRef.current = window.setTimeout(attemptReconnect, Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000));
+            });
+        } else {
+          showToast('Failed to reconnect. Please refresh the page.', 'error');
+        }
+      };
+      
+      reconnectTimeoutRef.current = window.setTimeout(attemptReconnect, 2000);
+    }
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [isSocketConnected, authState, chatState, showToast]);
+
+  // Connection quality monitoring
+  useEffect(() => {
+    if (!isSocketConnected || !socketService.getConnected()) {
+      setConnectionQuality('poor');
+      return;
+    }
+
+    const checkConnection = () => {
+      const startTime = Date.now();
+      // Simple ping-pong check
+      if (socketService.getConnected()) {
+        const latency = Date.now() - startTime;
+        if (latency < 50) setConnectionQuality('excellent');
+        else if (latency < 100) setConnectionQuality('good');
+        else if (latency < 200) setConnectionQuality('fair');
+        else setConnectionQuality('poor');
+      } else {
+        setConnectionQuality('poor');
+      }
+    };
+
+    const interval = setInterval(checkConnection, 5000);
+    return () => clearInterval(interval);
+  }, [isSocketConnected]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle shortcuts when chat is active and not typing in input
+      if (chatState === 'idle' || (e.target as HTMLElement)?.tagName === 'INPUT') {
+        return;
+      }
+
+      // Ctrl/Cmd + Enter or Space to find next
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (chatState === 'connected' && verificationStatus === 'verified') {
+          findNext();
+        }
+      }
+
+      // Escape to stop chat
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        stopChat(false);
+      }
+
+      // M to toggle mute
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        if (localStream) {
+          localStream.getAudioTracks().forEach(track => {
+            track.enabled = !track.enabled;
+          });
+        }
+      }
+
+      // C to toggle camera
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        if (localStream) {
+          localStream.getVideoTracks().forEach(track => {
+            track.enabled = !track.enabled;
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [chatState, verificationStatus, findNext, stopChat, localStream]);
+
   useEffect(() => {
     return () => {
       stopMediaTracks(localStreamRef.current);
       cleanupVerification();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
   }, [cleanupVerification]);
 
@@ -475,6 +634,10 @@ const App: React.FC = () => {
                 onStop={() => stopChat(false)}
                 onSendMessage={handleSendMessage}
                 onReport={handleReport}
+                matchId={currentMatchId}
+                isPartnerTyping={isPartnerTyping}
+                onTyping={handleTyping}
+                connectionQuality={connectionQuality}
               />
             )}
           </main>

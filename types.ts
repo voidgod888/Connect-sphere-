@@ -25,6 +25,7 @@ export type ChatMessage = {
   id: string;
   text: string;
   sender: 'user' | 'partner';
+  timestamp?: string;
 };
 
 export type AuthState = 'unauthenticated' | 'authenticated';
