@@ -28,7 +28,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
     if (videoRef.current) {
       videoRef.current.volume = isVolumeMuted ? 0 : volume;
     }
-  }, [volume, isVolumeMuted, videoRef, stream]);
+  }, [volume, isVolumeMuted, videoRef]);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);

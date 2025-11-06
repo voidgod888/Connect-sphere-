@@ -21,13 +21,27 @@ class YoloService {
       this.worker = new Worker(new URL('./yolo.worker.ts', import.meta.url), { type: 'module' });
       this.worker.onmessage = this.handleWorkerMessage.bind(this);
       
+      let rejectReadyPromise: (error: string) => void;
       this.readyPromise = new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => reject("Worker loading timed out"), 15000);
+          rejectReadyPromise = reject;
+          const timer = setTimeout(() => {
+            this.isReady = false;
+            reject("Worker loading timed out");
+          }, 15000);
           this.resolveReadyPromise = () => {
               clearTimeout(timer);
               resolve();
           };
       });
+      
+      // Handle worker errors
+      this.worker.onerror = (error) => {
+        console.error("Worker error:", error);
+        this.isReady = false;
+        if (rejectReadyPromise) {
+          rejectReadyPromise("Worker initialization failed");
+        }
+      };
 
     } else {
       console.error("Web Workers are not supported in this browser.");
