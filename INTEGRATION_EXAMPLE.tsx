@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  User, UserStats, AdvancedSettings, SubscriptionTier, Theme,
+  User, UserStats, AdvancedSettings, Theme,
   LeaderboardEntry, Achievement, QueueStats
 } from './types';
 import { apiService } from './services/api';
@@ -13,7 +13,6 @@ import { connectionOptimization } from './services/connectionOptimization';
 
 // Import new components
 import { StatsPanel } from './components/StatsPanel';
-import { PremiumModal } from './components/PremiumModal';
 import { AdvancedSettingsPanel } from './components/AdvancedSettingsPanel';
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 import { LeaderboardPanel } from './components/LeaderboardPanel';
@@ -36,11 +35,6 @@ const AppIntegrationExample = () => {
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-
-  // Premium
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [userCoins, setUserCoins] = useState(0);
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(SubscriptionTier.Free);
 
   // Settings
   const [advancedSettings, setAdvancedSettings] = useState<AdvancedSettings>({
@@ -85,44 +79,8 @@ const AppIntegrationExample = () => {
       const settings = await apiService.getUserSettings();
       setAdvancedSettings(settings);
       setCurrentTheme(settings.theme || Theme.Dark);
-
-      // Update user coins and subscription
-      setUserCoins(user?.coins || 0);
-      setSubscriptionTier(user?.subscriptionTier || SubscriptionTier.Free);
     } catch (error) {
       console.error('Error loading user data:', error);
-    }
-  };
-
-  // PREMIUM HANDLERS
-  const handleUpgradeSubscription = async (tier: SubscriptionTier) => {
-    try {
-      const response = await apiService.upgradeSubscription(tier);
-      setSubscriptionTier(response.subscription);
-      setUserCoins(response.coins);
-      showToast('Subscription upgraded successfully!', 'success');
-    } catch (error) {
-      showToast('Failed to upgrade subscription', 'error');
-    }
-  };
-
-  const handlePurchaseCoins = async (amount: number) => {
-    try {
-      const response = await apiService.purchaseCoins(amount);
-      setUserCoins(response.coins);
-      showToast(`Purchased ${amount} coins!`, 'success');
-    } catch (error) {
-      showToast('Failed to purchase coins', 'error');
-    }
-  };
-
-  const handleBoostProfile = async () => {
-    try {
-      const response = await apiService.boostProfile();
-      setUserCoins(response.coins);
-      showToast('Profile boosted for 24 hours!', 'success');
-    } catch (error) {
-      showToast('Failed to boost profile', 'error');
     }
   };
 
@@ -225,15 +183,6 @@ const AppIntegrationExample = () => {
       {/* ADD TO HEADER - Stats & Premium Buttons */}
       <header className="app-header">
         <div className="header-actions">
-          {/* Coins Display */}
-          <button 
-            onClick={() => setShowPremiumModal(true)}
-            className="coin-display"
-          >
-            <span>🪙</span>
-            <span>{userCoins}</span>
-          </button>
-
           {/* Stats Button */}
           <button onClick={() => setShowStatsPanel(true)}>
             📊 Stats
@@ -248,13 +197,6 @@ const AppIntegrationExample = () => {
           <button onClick={() => setShowAdvancedSettings(true)}>
             ⚙️ Settings
           </button>
-
-          {/* Premium Badge */}
-          {subscriptionTier !== SubscriptionTier.Free && (
-            <span className="premium-badge">
-              {subscriptionTier === SubscriptionTier.VIP ? '👑 VIP' : '⭐ Premium'}
-            </span>
-          )}
         </div>
       </header>
 
@@ -283,16 +225,6 @@ const AppIntegrationExample = () => {
         <StatsPanel 
           stats={userStats} 
           onClose={() => setShowStatsPanel(false)} 
-        />
-      )}
-
-      {showPremiumModal && (
-        <PremiumModal
-          currentTier={subscriptionTier}
-          userCoins={userCoins}
-          onClose={() => setShowPremiumModal(false)}
-          onUpgrade={handleUpgradeSubscription}
-          onPurchaseCoins={handlePurchaseCoins}
         />
       )}
 

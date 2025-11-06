@@ -1,10 +1,9 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { UserSettings, ChatState, VerificationStatus, ChatMessage, AuthState, User, Partner } from './types';
+import type { UserSettings, ChatState, VerificationStatus, ChatMessage, Partner } from './types';
 import { PartnerPreference } from './types';
 import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
-import { LoginScreen } from './components/LoginScreen';
 import { ToastContainer, Toast, ToastType } from './components/Toast';
 import { yoloService } from './services/yoloService';
 import { apiService } from './services/api';
@@ -13,12 +12,6 @@ import { PARTNER_VIDEOS } from './constants';
 import { isMobileDevice } from './utils';
 
 const App: React.FC = () => {
-  // Auth State
-  const [authState, setAuthState] = useState<AuthState>('unauthenticated');
-  const [user, setUser] = useState<User | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-
   // Chat State
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [chatState, setChatState] = useState<ChatState>('idle');
@@ -60,26 +53,8 @@ const App: React.FC = () => {
   useEffect(() => {
     yoloService.loadModel().then(() => {
       setIsModelLoading(false);
-      showToast('Model loaded successfully', 'success');
+      showToast('Ready to chat!', 'success');
     });
-    
-    // Check for existing session
-    const checkSession = async () => {
-      try {
-        const sessionUser = await apiService.verifySession();
-        setUser(sessionUser);
-        setAuthState('authenticated');
-        setAuthError(null);
-        setIsAuthenticating(false);
-        showToast('Welcome back!', 'success');
-      } catch (error) {
-        // No valid session
-        apiService.clearToken();
-        setIsAuthenticating(false);
-      }
-    };
-    
-    checkSession();
   }, [showToast]);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
@@ -118,76 +93,6 @@ const App: React.FC = () => {
     }
   }, [cleanupVerification, currentMatchId]);
 
-  const authenticate = useCallback(async (
-    provider: 'google' | 'apple',
-    token: string,
-    fullName?: string
-  ) => {
-    if (!token) {
-      const message = 'Authentication token is missing. Please try again.';
-      setAuthError(message);
-      showToast(message, 'error');
-      return;
-    }
-
-    setIsAuthenticating(true);
-    setAuthError(null);
-
-    try {
-      const response = provider === 'google'
-        ? await apiService.authGoogle(token)
-        : await apiService.authApple(token, undefined, undefined, fullName);
-
-      setUser(response.user);
-      setAuthState('authenticated');
-      showToast('Successfully signed in!', 'success');
-    } catch (err) {
-      console.error(`${provider} authentication error:`, err);
-      const message = err instanceof Error
-        ? err.message
-        : 'Authentication failed. Please try again.';
-      setAuthError(message);
-      showToast(message, 'error');
-      apiService.clearToken();
-    } finally {
-      setIsAuthenticating(false);
-    }
-  }, [showToast]);
-
-  const handleGoogleLogin = useCallback((credential: string) => {
-    authenticate('google', credential);
-  }, [authenticate]);
-
-  const handleAppleLogin = useCallback((identityToken: string, fullName?: string) => {
-    authenticate('apple', identityToken, fullName);
-  }, [authenticate]);
-
-  const handleLogout = useCallback(async () => {
-    if (chatState !== 'idle') {
-      stopChat(true);
-    }
-    
-    // Disconnect socket
-    socketService.disconnect();
-    setIsSocketConnected(false);
-    
-    // Logout from backend
-    try {
-      await apiService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-    
-    setUser(null);
-    setAuthState('unauthenticated');
-    setAuthError(null);
-    setIsAuthenticating(false);
-    setBlockedPartners([]);
-    setCurrentMatchId(null);
-    showToast('Logged out successfully', 'info');
-  }, [chatState, stopChat, showToast]);
-
-
   const selectNextPartner = useCallback(() => {
     const availablePartners = PARTNER_VIDEOS.filter(
       url => !blockedPartners.includes(url) && url !== currentPartner?.id
@@ -210,7 +115,7 @@ const App: React.FC = () => {
 
 
   const findNext = useCallback(() => {
-    if (!isSocketConnected || !user || !settings) {
+    if (!isSocketConnected || !settings) {
       setError("Not connected to server. Please try again.");
       return;
     }
@@ -304,14 +209,6 @@ const App: React.FC = () => {
           setChatState('idle');
           return;
         }
-      }
-
-      // Update user settings on backend
-      try {
-        await apiService.updateUserSettings(newSettings.identity, newSettings.country);
-      } catch (apiError) {
-        console.error('Failed to update user settings:', apiError);
-        // Continue anyway
       }
       
       // --- MOBILE DETECTION AND OPTIMIZATION ---
@@ -519,7 +416,7 @@ const App: React.FC = () => {
 
   // Auto-reconnect logic
   useEffect(() => {
-    if (!isSocketConnected && authState === 'authenticated' && chatState !== 'idle') {
+    if (!isSocketConnected && chatState !== 'idle') {
       const attemptReconnect = () => {
         reconnectAttemptsRef.current += 1;
         if (reconnectAttemptsRef.current <= 5) {
@@ -546,7 +443,7 @@ const App: React.FC = () => {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isSocketConnected, authState, chatState, showToast]);
+  }, [isSocketConnected, chatState, showToast]);
 
   // Connection quality monitoring
   useEffect(() => {
@@ -660,70 +557,45 @@ const App: React.FC = () => {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       
-      {authState === 'unauthenticated' ? (
-        <div className="animate-fadeIn">
-          <LoginScreen
-            onGoogleLogin={handleGoogleLogin}
-            onAppleLogin={handleAppleLogin}
-            isLoading={isAuthenticating}
-            error={authError}
-            onError={setAuthError}
-          />
+      <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown safe-area-top">
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
+            Connect<span className="text-blue-400">Sphere</span>
+          </h1>
+          {chatState !== 'idle' && (
+            <button
+              onClick={() => stopChat(false)}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30 text-sm sm:text-base touch-manipulation"
+            >
+              Stop
+            </button>
+          )}
         </div>
-      ) : (
-        <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown safe-area-top">
-            <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
-              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
-                Connect<span className="text-blue-400">Sphere</span>
-              </h1>
-              {chatState !== 'idle' ? (
-                 <button
-                  onClick={() => stopChat(false)}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30 text-sm sm:text-base touch-manipulation"
-                >
-                  Stop
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 sm:gap-4 animate-fadeInRight">
-                  <span className="text-gray-300 font-medium text-xs sm:text-base hidden sm:inline">Welcome, {user?.name}!</span>
-                  <span className="text-gray-300 font-medium text-xs sm:hidden">{user?.name?.split(' ')[0] || 'User'}!</span>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30 text-sm sm:text-base touch-manipulation"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </header>
+      </header>
 
-          <main className="flex-1 overflow-hidden animate-fadeIn">
-            {chatState === 'idle' ? (
-              <SettingsScreen onStart={startChat} error={error} />
-            ) : (
-              <ChatScreen
-                chatState={chatState}
-                localStream={localStream}
-                remoteStream={remoteStream}
-                remoteVideoRef={remoteVideoRef}
-                verificationStatus={verificationStatus}
-                messages={messages}
-                reportMessage={reportMessage}
-                onNext={findNext}
-                onStop={() => stopChat(false)}
-                onSendMessage={handleSendMessage}
-                onReport={handleReport}
-                matchId={currentMatchId}
-                isPartnerTyping={isPartnerTyping}
-                onTyping={handleTyping}
-                connectionQuality={connectionQuality}
-              />
-            )}
-          </main>
-        </>
-      )}
+      <main className="flex-1 overflow-hidden animate-fadeIn">
+        {chatState === 'idle' ? (
+          <SettingsScreen onStart={startChat} error={error} />
+        ) : (
+          <ChatScreen
+            chatState={chatState}
+            localStream={localStream}
+            remoteStream={remoteStream}
+            remoteVideoRef={remoteVideoRef}
+            verificationStatus={verificationStatus}
+            messages={messages}
+            reportMessage={reportMessage}
+            onNext={findNext}
+            onStop={() => stopChat(false)}
+            onSendMessage={handleSendMessage}
+            onReport={handleReport}
+            matchId={currentMatchId}
+            isPartnerTyping={isPartnerTyping}
+            onTyping={handleTyping}
+            connectionQuality={connectionQuality}
+          />
+        )}
+      </main>
     </div>
   );
 };

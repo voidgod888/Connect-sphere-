@@ -11,12 +11,7 @@ export enum PartnerPreference {
   Everyone = 'everyone',
 }
 
-// Premium Subscription Tiers
-export enum SubscriptionTier {
-  Free = 'free',
-  Premium = 'premium',
-  VIP = 'vip',
-}
+// All features are now free - no subscription tiers needed
 
 // Theme options
 export enum Theme {
@@ -91,12 +86,9 @@ export type User = {
   name: string;
   email: string;
   username?: string;
-  subscriptionTier?: SubscriptionTier;
-  coins?: number;
   interests?: Interest[];
   languages?: Language[];
   age?: number;
-  profileBoostUntil?: string;
 };
 
 export type Partner = {
