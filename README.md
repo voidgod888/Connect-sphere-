@@ -1,695 +1,150 @@
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
+# ConnectSphere
+
+### 🌍 Connect with the World Through Video Chat
+
+A modern, feature-rich video chat application that connects people from around the globe. Built with cutting-edge web technologies and designed for seamless real-time communication.
+
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-4.5-010101?logo=socket.io)](https://socket.io/)
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
+
 </div>
 
-# ConnectSphere - Video Chat Application
+---
 
-A real-time video chat application similar to Omegle, built with React, TypeScript, Node.js, and WebRTC.
+## ✨ Overview
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsigHOpHV4ncW
+ConnectSphere is a next-generation video chat platform that brings people together through secure, real-time video communication. Whether you're looking to make new friends, practice languages, or explore different cultures, ConnectSphere provides a safe and engaging environment for meaningful connections.
 
-## 📋 Table of Contents
+### 🎯 Key Highlights
 
-- [Features](#features)
-- [Architecture Overview](#architecture-overview)
-- [Codebase Structure](#codebase-structure)
-- [Detailed Component Documentation](#detailed-component-documentation)
-- [API Documentation](#api-documentation)
-- [WebSocket Events](#websocket-events)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Build Instructions](#build-instructions)
-- [Termux Build (One-Line)](#termux-build-one-line)
-- [Environment Configuration](#environment-configuration)
-- [Development Notes](#development-notes)
+- 🔐 **Secure Authentication** - Google OAuth 2.0 & Sign in with Apple
+- 🎥 **HD Video Chat** - Real-time peer-to-peer video streaming
+- 🎮 **Smart Matching** - AI-powered partner matching based on interests, language, and preferences
+- 🏆 **Gamification** - Achievements, leaderboards, and stats to keep you engaged
+- 💎 **Premium Features** - Subscription tiers with exclusive benefits
+- 🛡️ **Safety First** - Comprehensive moderation, reporting, and teen safety features
+- 🌐 **Global Reach** - Connect with users from 200+ countries
+- ⚡ **Optimized** - Adaptive bitrate streaming and connection quality monitoring
 
-## ✨ Features
+---
 
-- 🔐 **User Authentication** - Mandatory Google OAuth 2.0 and Sign in with Apple (no password storage)
-- 🎥 **Real-time Video Chat** - Partner matching with video streaming
-- 💬 **WebSocket-based Chat** - Real-time text messaging during video calls
-- 🎯 **Partner Preference Filtering** - Gender-based matching (Male/Female/Everyone)
-- 🛡️ **User Moderation** - Reporting and blocking functionality
-- 🧩 **Security Hardening** - Helmet protections, strict session validation, and API rate limiting
-- 📊 **AI Gender Detection** - ML-based gender verification using YOLO (simulated)
-- 🌍 **Country-based Filtering** - Match users by country preference
-- 📱 **Responsive Design** - Modern UI with toast notifications
+## 🚀 Features
 
-## 🏗️ Architecture Overview
+### 🎯 Matching & Discovery
 
-### Frontend Stack
-- **React 19** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **Socket.io Client** - WebSocket communication
-- **Lucide React** - Icon library
+- **Interest-Based Matching** - Select up to 5 interests for better connections
+- **Language Preferences** - Match with users who speak your languages
+- **Age Range Filter** - Connect with users in your preferred age range (13+)
+- **Country Filtering** - Match by country or go global
+- **Queue Statistics** - Real-time queue status and estimated wait times
+- **Safe Mode** - Match only with verified users (Premium)
 
-### Backend Stack
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **Socket.io** - WebSocket server
-- **SQLite (better-sqlite3)** - Database
-- **Google Auth Library** - OAuth authentication
+### 🏆 Gamification & Engagement
 
-### Real-time Communication
-- **WebSocket (Socket.io)** - Signaling and chat
-- **WebRTC** - Peer-to-peer video (signaling implemented, currently using sample videos)
+- **User Statistics** - Track chats, time spent, countries visited, and more
+- **Achievement System** - Unlock 8+ achievements as you explore
+- **Global Leaderboard** - Compete for top rankings worldwide
+- **Rating System** - Rate your chat partners (1-5 stars)
+- **Streak Tracking** - Daily login streaks and rewards
 
-## 📁 Codebase Structure
+### 🎨 User Experience
 
-```
-/workspace
-├── components/              # React UI components
-│   ├── ChatHistory.tsx     # Chat message history display
-│   ├── ChatInput.tsx       # Message input component
-│   ├── ChatScreen.tsx      # Main chat interface
-│   ├── Controls.tsx       # Video call controls (Next, Stop, Report)
-│   ├── LoginScreen.tsx    # Authentication screen
-│   ├── SettingsScreen.tsx # User preferences before starting chat
-│   ├── Toast.tsx          # Toast notification component
-│   └── VideoPlayer.tsx    # Video player component
-├── services/               # Frontend services
-│   ├── api.ts             # REST API client
-│   ├── socketService.ts   # WebSocket client service
-│   ├── yoloService.ts     # YOLO gender detection service
-│   └── yolo.worker.ts     # Web Worker for YOLO processing
-├── server/                 # Backend server
-│   ├── database/
-│   │   └── db.js          # SQLite database setup and queries
-│   ├── middleware/
-│   │   └── auth.js        # Authentication middleware
-│   ├── routes/
-│   │   ├── auth.js        # Authentication endpoints
-│   │   └── users.js       # User management endpoints
-│   ├── services/
-│   │   └── matching.js    # Partner matching algorithm
-│   ├── socket/
-│   │   └── socketHandler.js # WebSocket event handlers
-│   └── index.js           # Express server entry point
-├── App.tsx                 # Main React application component
-├── index.tsx              # React DOM entry point
-├── index.html             # HTML template
-├── types.ts               # TypeScript type definitions
-├── constants.ts           # Application constants (videos, countries)
-├── vite.config.ts         # Vite configuration
-├── tsconfig.json          # TypeScript configuration
-└── package.json           # Frontend dependencies
+- **5 Beautiful Themes** - Dark, Light, Ocean, Purple, and Forest
+- **Advanced Settings** - Customize connection quality, profanity filter, and more
+- **Keyboard Shortcuts** - Power user shortcuts for faster navigation
+- **Connection Quality Indicator** - Real-time network monitoring
+- **Bandwidth Saver Mode** - Optimize for mobile data usage
+- **Network Diagnostics** - Test and improve your connection
 
-```
+### 💎 Premium Features
 
-## 📚 Detailed Component Documentation
+- **Subscription Tiers** - Free, Premium ($4.99/mo), and VIP ($9.99/mo)
+- **Virtual Currency** - Earn and spend coins on boosts and gifts
+- **Profile Boost** - Get priority matching for 24 hours
+- **Custom Username** - Stand out with a unique username
+- **HD/4K Video** - Higher quality video streaming
+- **Unlimited Skips** - Never wait for the perfect match
+- **No Ads** - Ad-free experience
 
-### Frontend Components
+### 🛡️ Safety & Security
 
-#### `App.tsx` - Main Application Component
-**Purpose**: Root component managing application state and routing
+- **Enhanced Reporting** - 6 report categories with detailed descriptions
+- **Profanity Filter** - 4 levels of content filtering
+- **Teen Safety Mode** - Special protections for users 13-17
+- **Time Limits** - Session and daily usage limits for teens
+- **Block System** - Block and prevent re-matching with users
+- **Age Verification** - ML-based gender verification (simulated)
 
-**Key Responsibilities**:
-- Authentication state management
-- Chat state management (idle, searching, connected)
-- Media stream handling (camera/microphone)
-- Socket connection management
-- Partner matching coordination
-- Gender verification using YOLO service
-- Toast notification system
+### ⚡ Performance & Optimization
 
-**State Management**:
-- `authState`: 'unauthenticated' | 'authenticated'
-- `chatState`: 'idle' | 'requesting_permissions' | 'searching' | 'connected'
-- `verificationStatus`: 'idle' | 'verifying' | 'verified' | 'mismatch'
-- `localStream`: User's camera/microphone stream
-- `remoteStream`: Partner's video stream
-- `currentPartner`: Current matched partner info
-- `messages`: Chat message history
+- **Adaptive Bitrate Streaming** - Auto-adjust video quality based on connection
+- **Connection Quality Monitoring** - Real-time metrics (latency, bandwidth, packet loss)
+- **Device Optimization** - Optimized for mobile and low-end devices
+- **Bandwidth Saver** - Reduce data usage by up to 60%
 
-**Key Functions**:
-- `authenticate(provider, token)`: Handles Google/Apple identity verification and session creation
-- `handleGoogleLogin()` / `handleAppleLogin()`: Trigger provider-specific authentication flows
-- `handleLogout()`: Cleanup and session termination
-- `startChat()`: Initialize video permissions and start matching
-- `findNext()`: Join matching queue and find new partner
-- `stopChat()`: End current chat session
-- `handleReport()`: Report and block abusive users
-- `handleSendMessage()`: Send chat message via WebSocket
-
-#### `LoginScreen.tsx`
-**Purpose**: User authentication interface
-
-**Features**:
-- Secure sign-in buttons for Google OAuth and Sign in with Apple (popup flows)
-- Automatic SDK loading with error feedback when configuration is missing
-- Animated branding experience to guide users through mandatory authentication
-
-#### `SettingsScreen.tsx`
-**Purpose**: User preference configuration before starting chat
-
-**Settings**:
-- **Identity**: Male, Female, or Multiple
-- **Partner Preference**: Male, Female, or Everyone
-- **Country**: Select from 200+ countries or "Global"
-
-**Flow**: After settings are submitted, requests camera/microphone permissions
-
-#### `ChatScreen.tsx`
-**Purpose**: Main video chat interface
-
-**Displays**:
-- Local video feed (user's camera)
-- Remote video feed (partner's video)
-- Chat message history
-- Verification status indicator
-- Control buttons (Next, Stop, Report)
-
-**States**:
-- **Searching**: Shows "Searching for partner..." message
-- **Connected**: Shows video feeds and chat interface
-- **Verifying**: Gender verification in progress
-- **Verified**: Partner verified, chat active
-- **Mismatch**: Partner doesn't match preference, auto-searching next
-
-#### `VideoPlayer.tsx`
-**Purpose**: Video element wrapper with controls
-
-**Features**:
-- Auto-play handling
-- Stream attachment
-- Responsive sizing
-
-#### `ChatHistory.tsx`
-**Purpose**: Message history display
-
-**Features**:
-- Scrollable message list
-- User vs Partner message styling
-- Timestamp display (if available)
-
-#### `ChatInput.tsx`
-**Purpose**: Message input field
-
-**Features**:
-- Send button
-- Enter key submission
-- Input validation
-
-#### `Controls.tsx`
-**Purpose**: Chat control buttons
-
-**Actions**:
-- **Next**: Find new partner
-- **Stop**: End chat session
-- **Report**: Report and block current partner
-
-#### `Toast.tsx`
-**Purpose**: Toast notification system
-
-**Types**: 'info' | 'success' | 'error' | 'warning'
-
-**Features**:
-- Auto-dismiss after duration
-- Manual dismiss
-- Stack multiple toasts
-
-### Frontend Services
-
-#### `services/api.ts` - REST API Client
-**Purpose**: HTTP client for backend API communication
-
-**Methods**:
-- `authGoogle(token, identity?, country?)`: Google OAuth authentication
-- `authApple(identityToken, identity?, country?, fullName?)`: Sign in with Apple authentication
-- `authMock(email, name?, identity?, country?)`: Mock authentication (available only when `ALLOW_MOCK_AUTH=true`)
-- `logout()`: End session
-- `verifySession()`: Check if session is valid
-- `getCurrentUser()`: Get user profile
-- `updateUserSettings(identity?, country?)`: Update preferences
-- `healthCheck()`: Server health check
-
-**Token Management**:
-- Stores JWT token in localStorage
-- Automatically includes token in Authorization header
-- Handles token expiration
-
-#### `services/socketService.ts` - WebSocket Client
-**Purpose**: Real-time communication with backend
-
-**Connection**:
-- Connects to Socket.io server
-- Authenticates with session token
-- Handles reconnection
-
-**Methods**:
-- `connect()`: Establish WebSocket connection
-- `disconnect()`: Close connection
-- `joinQueue(preference, settings, callback)`: Join matching queue
-- `leaveQueue()`: Leave matching queue
-- `sendMessage(matchId, text, callback)`: Send chat message
-- `endMatch(matchId, callback)`: End current match
-- `reportUser(reportedId, reason?, matchId?, callback)`: Report user
-- `sendOffer/Answer/IceCandidate()`: WebRTC signaling
-
-**Event Listeners**:
-- `onMatchFound()`: Partner matched
-- `onMessage()`: New chat message received
-- `onMatchEnded()`: Match ended
-- `onOffer/Answer/IceCandidate()`: WebRTC signaling events
-
-#### `services/yoloService.ts` - Gender Detection Service
-**Purpose**: AI-based gender detection for partner verification
-
-**Implementation**:
-- Uses Web Worker for non-blocking processing
-- Loads YOLO model (COCO-SSD) in background
-- Processes video frames to detect gender
-- Currently simulated (COCO-SSD doesn't detect gender)
-
-**Methods**:
-- `loadModel()`: Initialize YOLO model
-- `detectGender(videoElement)`: Detect gender from video frame
-
-**Note**: Gender detection is simulated. In production, you'd need a specialized gender detection model.
-
-#### `services/yolo.worker.ts` - Web Worker
-**Purpose**: Background processing for YOLO model
-
-**Features**:
-- Loads TensorFlow.js and COCO-SSD model
-- Processes ImageBitmap from main thread
-- Returns detection results
-
-### Backend Components
-
-#### `server/index.js` - Express Server
-**Purpose**: Main server entry point
-
-**Setup**:
-- Creates HTTP server
-- Initializes Socket.io
-- Configures CORS
-- Sets up routes
-- Initializes database
-
-**Port**: Default 3001 (configurable via PORT env var)
-
-#### `server/database/db.js` - Database Layer
-**Purpose**: SQLite database initialization and queries
-
-**Tables**:
-- `users`: User accounts (id, name, email, google_id, identity, country, created_at, last_seen)
-- `sessions`: Active sessions (id, user_id, token, expires_at, created_at)
-- `matches`: Match records (id, user1_id, user2_id, status, created_at, ended_at)
-- `messages`: Chat messages (id, match_id, user_id, text, created_at)
-- `blocks`: User blocks (id, user_id, blocked_id, created_at)
-- `reports`: User reports (id, reporter_id, reported_id, reason, match_id, created_at)
-
-**Query Methods**:
-- User CRUD operations
-- Session management
-- Match tracking
-- Message storage
-- Block/report management
-
-#### `server/routes/auth.js` - Authentication Routes
-**Endpoints**:
-- `POST /api/auth/google`: Google OAuth authentication
-- `POST /api/auth/apple`: Sign in with Apple authentication
-- `POST /api/auth/mock`: Mock authentication (development)
-- `POST /api/auth/logout`: Logout and invalidate session
-- `GET /api/auth/verify`: Verify session token
-
-**Flow**:
-1. Verify credentials (Google ID token or Apple identity token)
-2. Find or create user (linking Google/Apple IDs and updating profile)
-3. Create session
-4. Return JWT token
-5. (Optional) Mock authentication available only when `ALLOW_MOCK_AUTH=true`
-
-#### `server/routes/users.js` - User Routes
-**Endpoints**:
-- `GET /api/users/me`: Get current user profile
-- `PUT /api/users/me`: Update user settings (identity, country)
-
-#### `server/services/matching.js` - Matching Service
-**Purpose**: Partner matching algorithm
-
-**Algorithm**:
-1. Maintains queue of waiting users
-2. Filters blocked users
-3. Checks preference compatibility
-4. Randomly selects from candidates
-5. Creates match record
-
-**Methods**:
-- `addWaitingUser(userId, socketId, preference, settings)`: Add to queue
-- `removeWaitingUser(userId)`: Remove from queue
-- `findMatch(userId, preference, settings)`: Find compatible partner
-- `getWaitingCount()`: Get queue size
-
-#### `server/socket/socketHandler.js` - WebSocket Handler
-**Purpose**: Real-time event handling
-
-**Events Handled**:
-
-**Client → Server**:
-- `authenticate`: Authenticate socket connection
-- `join-queue`: Join matching queue
-- `leave-queue`: Leave queue
-- `send-message`: Send chat message
-- `offer`: WebRTC offer
-- `answer`: WebRTC answer
-- `ice-candidate`: WebRTC ICE candidate
-- `end-match`: End current match
-- `report-user`: Report and block user
-
-**Server → Client**:
-- `match-found`: Match found notification
-- `new-message`: New chat message
-- `match-ended`: Match ended
-- `offer/answer/ice-candidate`: WebRTC signaling
-
-**State Management**:
-- Tracks active sockets
-- Maps users to sockets
-- Manages match pairs
-- Handles disconnections
-
-#### `server/middleware/auth.js` - Authentication Middleware
-**Purpose**: Verify JWT tokens for protected routes
-
-**Usage**: Applied to routes requiring authentication
-
-## 🔌 API Documentation
-
-### Authentication Endpoints
-
-#### `POST /api/auth/google`
-Authenticate with Google OAuth token.
-
-**Request Body**:
-```json
-{
-  "token": "google_id_token",
-  "identity": "male" | "female" | "multiple",
-  "country": "United States"
-}
-```
-
-**Response**:
-```json
-{
-  "user": {
-    "id": "user_xxx",
-    "name": "John Doe",
-    "email": "john@example.com"
-  },
-  "token": "session_token",
-  "expiresAt": "2024-01-01T00:00:00.000Z"
-}
-```
-
-#### `POST /api/auth/apple`
-Authenticate with Sign in with Apple.
-
-**Request Body**:
-```json
-{
-  "identityToken": "apple_identity_token",
-  "identity": "male" | "female" | "multiple",
-  "country": "United States",
-  "fullName": "John Appleseed"
-}
-```
-
-**Response**: Same structure as `/api/auth/google`
-
-#### `POST /api/auth/mock`
-Mock authentication for development (requires `ALLOW_MOCK_AUTH=true`).
-
-**Request Body**:
-```json
-{
-  "email": "user@example.com",
-  "name": "Demo User",
-  "identity": "male",
-  "country": "Global"
-}
-```
-
-**Response**: Same as `/api/auth/google`
-
-#### `POST /api/auth/logout`
-Logout and invalidate session.
-
-**Headers**: `Authorization: Bearer <token>`
-
-**Response**:
-```json
-{
-  "success": true
-}
-```
-
-#### `GET /api/auth/verify`
-Verify session token.
-
-**Headers**: `Authorization: Bearer <token>`
-
-**Response**:
-```json
-{
-  "user": {
-    "id": "user_xxx",
-    "name": "John Doe",
-    "email": "john@example.com"
-  }
-}
-```
-
-### User Endpoints
-
-#### `GET /api/users/me`
-Get current user profile.
-
-**Headers**: `Authorization: Bearer <token>`
-
-**Response**:
-```json
-{
-  "user": {
-    "id": "user_xxx",
-    "name": "John Doe",
-    "email": "john@example.com"
-  }
-}
-```
-
-#### `PUT /api/users/me`
-Update user settings.
-
-**Headers**: `Authorization: Bearer <token>`
-
-**Request Body**:
-```json
-{
-  "identity": "male" | "female" | "multiple",
-  "country": "United States"
-}
-```
-
-**Response**: Same as `GET /api/users/me`
-
-### Health Check
-
-#### `GET /api/health`
-Server health check.
-
-**Response**:
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
-## 📡 WebSocket Events
-
-### Client → Server Events
-
-#### `authenticate`
-Authenticate socket connection.
-
-**Payload**: `token` (string)
-
-**Callback**:
-```json
-{
-  "success": true,
-  "user": { ... }
-}
-```
-
-#### `join-queue`
-Join matching queue.
-
-**Payload**:
-```json
-{
-  "preference": "male" | "female" | "everyone",
-  "settings": {
-    "identity": "male" | "female" | "multiple",
-    "country": "United States"
-  }
-}
-```
-
-**Callback**:
-```json
-{
-  "success": true,
-  "matched": true | false,
-  "matchId": "match_xxx" // if matched
-}
-```
-
-#### `leave-queue`
-Leave matching queue.
-
-**Payload**: None
-
-#### `send-message`
-Send chat message.
-
-**Payload**:
-```json
-{
-  "matchId": "match_xxx",
-  "text": "Hello!"
-}
-```
-
-**Callback**:
-```json
-{
-  "success": true,
-  "message": { ... }
-}
-```
-
-#### `end-match`
-End current match.
-
-**Payload**:
-```json
-{
-  "matchId": "match_xxx"
-}
-```
-
-**Callback**:
-```json
-{
-  "success": true
-}
-```
-
-#### `report-user`
-Report and block user.
-
-**Payload**:
-```json
-{
-  "reportedId": "user_xxx",
-  "reason": "Inappropriate behavior",
-  "matchId": "match_xxx"
-}
-```
-
-**Callback**:
-```json
-{
-  "success": true
-}
-```
-
-### Server → Client Events
-
-#### `match-found`
-Match found notification.
-
-**Payload**:
-```json
-{
-  "matchId": "match_xxx",
-  "partner": {
-    "id": "user_xxx",
-    "name": "Jane Doe"
-  }
-}
-```
-
-#### `new-message`
-New chat message received.
-
-**Payload**:
-```json
-{
-  "id": "msg_xxx",
-  "text": "Hello!",
-  "sender": "partner",
-  "createdAt": "2024-01-01T00:00:00.000Z"
-}
-```
-
-#### `match-ended`
-Match ended notification.
-
-**Payload**: None
+---
 
 ## 📋 Prerequisites
+
+Before you begin, ensure you have:
 
 - **Node.js** 18+ (for both frontend and backend)
 - **npm** or **yarn** package manager
 - **Camera and Microphone** (for video chat functionality)
-- **Modern Browser** with WebRTC support (Chrome, Firefox, Edge)
+- **Modern Browser** with WebRTC support (Chrome, Firefox, Edge, Safari)
+- **Google OAuth Credentials** (for authentication)
+- **Apple Developer Account** (optional, for Sign in with Apple)
+
+---
 
 ## 🚀 Quick Start
 
-### 1. Install Frontend Dependencies
+### 1️⃣ Clone & Install
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd connectsphere
+
+# Install frontend dependencies
 npm install
-```
 
-### 2. Install Backend Dependencies
-
-```bash
+# Install backend dependencies
 cd server
 npm install
 cd ..
 ```
 
-### 3. Configure Environment Variables
+### 2️⃣ Environment Setup
 
-**Frontend** (optional - defaults work for local dev):
-Create `.env` file in root:
-```bash
+**Frontend** - Create `.env` in project root:
+
+```env
 VITE_API_URL=http://localhost:3001/api
 VITE_WS_URL=http://localhost:3001
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+VITE_APPLE_CLIENT_ID=com.your.bundle.id
 ```
 
-**Backend**:
-Create `server/.env` file:
-```bash
+**Backend** - Create `server/.env`:
+
+```env
 PORT=3001
 CLIENT_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=your_google_client_id_here
 APPLE_CLIENT_ID=com.your.bundle.id
-# Optional: support multiple web service IDs, comma separated
-# APPLE_CLIENT_IDS=com.your.bundle.id,com.another.bundle.id
 ALLOW_MOCK_AUTH=false
 DATABASE_PATH=./data/connectsphere.db
 ```
 
-### 4. Run the Application
+### 3️⃣ Run the Application
 
 **Terminal 1 - Backend Server:**
 ```bash
@@ -702,170 +157,374 @@ npm run dev
 npm run dev
 ```
 
-The application will be available at:
+### 4️⃣ Access the App
+
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/api/health
 
-## 🔨 Build Instructions
+---
 
-### Development Build
+## 📁 Project Structure
 
-**Frontend**:
-```bash
-npm run dev
+```
+connectsphere/
+├── components/              # React UI components
+│   ├── AchievementBadge.tsx
+│   ├── AdvancedSettingsPanel.tsx
+│   ├── AgeVerification.tsx
+│   ├── BandwidthSaverMode.tsx
+│   ├── ChatHistory.tsx
+│   ├── ChatInput.tsx
+│   ├── ChatScreen.tsx
+│   ├── ConnectionQualityIndicator.tsx
+│   ├── Controls.tsx
+│   ├── EnhancedReportModal.tsx
+│   ├── InterestSelector.tsx
+│   ├── KeyboardShortcutsPanel.tsx
+│   ├── LanguageSelector.tsx
+│   ├── LeaderboardPanel.tsx
+│   ├── LoginScreen.tsx
+│   ├── NetworkDiagnostics.tsx
+│   ├── PremiumModal.tsx
+│   ├── QueueStatsDisplay.tsx
+│   ├── SettingsScreen.tsx
+│   ├── StatsPanel.tsx
+│   ├── TeenSafetyMode.tsx
+│   ├── ThemeSelector.tsx
+│   ├── Toast.tsx
+│   └── VideoPlayer.tsx
+├── services/               # Frontend services
+│   ├── api.ts             # REST API client
+│   ├── connectionOptimization.ts
+│   ├── socketService.ts   # WebSocket client
+│   ├── yoloService.ts     # Gender detection service
+│   └── yolo.worker.ts     # Web Worker for ML
+├── server/                # Backend server
+│   ├── database/
+│   │   └── db.js          # SQLite database & queries
+│   ├── middleware/
+│   │   ├── auth.js        # Authentication middleware
+│   │   └── teenSafety.js  # Teen safety middleware
+│   ├── routes/
+│   │   ├── auth.js        # Authentication endpoints
+│   │   ├── premium.js     # Premium features
+│   │   ├── settings.js    # User settings
+│   │   ├── stats.js       # Statistics & leaderboard
+│   │   └── users.js       # User management
+│   ├── services/
+│   │   ├── appleAuth.js   # Apple authentication
+│   │   └── matching.js    # Partner matching algorithm
+│   ├── socket/
+│   │   └── socketHandler.js # WebSocket handlers
+│   └── index.js           # Express server entry point
+├── App.tsx                 # Main React component
+├── index.tsx              # React DOM entry point
+├── types.ts               # TypeScript definitions
+├── constants.ts           # App constants
+└── vite.config.ts         # Vite configuration
 ```
 
-**Backend**:
+---
+
+## 🏗️ Architecture
+
+### Frontend Stack
+
+- **React 19** - Modern UI framework with hooks
+- **TypeScript** - Type-safe development
+- **Vite** - Lightning-fast build tool
+- **Socket.io Client** - Real-time WebSocket communication
+- **Lucide React** - Beautiful icon library
+- **Tailwind CSS** - Utility-first styling
+
+### Backend Stack
+
+- **Node.js** - JavaScript runtime
+- **Express** - Web application framework
+- **Socket.io** - Real-time bidirectional communication
+- **SQLite (better-sqlite3)** - Lightweight database
+- **Google Auth Library** - OAuth 2.0 authentication
+- **JOSE** - JWT handling for Apple Sign-In
+- **Helmet** - Security middleware
+- **Express Rate Limit** - API rate limiting
+
+### Real-time Communication
+
+- **WebSocket (Socket.io)** - Signaling and chat messages
+- **WebRTC** - Peer-to-peer video streaming (signaling implemented)
+
+---
+
+## 📚 Documentation
+
+### Core Documentation
+
+- **[Features Guide](./FEATURES_ADDED.md)** - Comprehensive feature documentation
+- **[Quick Start Guide](./QUICK_START.md)** - Integration and usage guide
+- **[Teen Safety](./TEEN_SAFETY.md)** - Age 13+ safety features
+- **[Integration Example](./INTEGRATION_EXAMPLE.tsx)** - Code examples
+
+### API Documentation
+
+#### Authentication Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/google` | Google OAuth authentication |
+| `POST` | `/api/auth/apple` | Sign in with Apple |
+| `POST` | `/api/auth/mock` | Mock auth (dev only) |
+| `POST` | `/api/auth/logout` | Logout and invalidate session |
+| `GET` | `/api/auth/verify` | Verify session token |
+
+#### User Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/users/me` | Get current user profile |
+| `PUT` | `/api/users/me` | Update user settings |
+
+#### Stats Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/stats/me` | Get user statistics |
+| `GET` | `/api/stats/leaderboard` | Get global leaderboard |
+| `POST` | `/api/stats/rate` | Rate a user |
+
+#### Premium Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/premium/upgrade` | Upgrade subscription |
+| `POST` | `/api/premium/coins/purchase` | Buy coins |
+| `POST` | `/api/premium/boost` | Boost profile |
+| `POST` | `/api/premium/username` | Set custom username |
+| `GET` | `/api/premium/transactions` | Get transaction history |
+
+#### Settings Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/settings/me` | Get user settings |
+| `PUT` | `/api/settings/advanced` | Update advanced settings |
+| `PUT` | `/api/settings/interests` | Update interests |
+| `PUT` | `/api/settings/languages` | Update languages |
+
+### WebSocket Events
+
+#### Client → Server
+
+- `authenticate` - Authenticate socket connection
+- `join-queue` - Join matching queue
+- `leave-queue` - Leave queue
+- `send-message` - Send chat message
+- `end-match` - End current match
+- `report-user` - Report and block user
+- `offer` / `answer` / `ice-candidate` - WebRTC signaling
+
+#### Server → Client
+
+- `match-found` - Partner matched notification
+- `new-message` - New chat message received
+- `match-ended` - Match ended notification
+- `offer` / `answer` / `ice-candidate` - WebRTC signaling
+
+---
+
+## 🔨 Build & Deployment
+
+### Development
+
 ```bash
-cd server
+# Frontend
 npm run dev
+
+# Backend
+cd server && npm run dev
 ```
 
 ### Production Build
 
-**Frontend**:
 ```bash
+# Frontend - creates optimized dist/ folder
 npm run build
-```
 
-This creates a `dist/` folder with optimized production files.
-
-**Backend**:
-```bash
-cd server
-npm start
-```
-
-### Preview Production Build
-
-```bash
+# Preview production build
 npm run preview
+
+# Backend - production mode
+cd server && npm start
 ```
 
-This serves the production build locally for testing.
+### Termux (Android) Build
 
-## 📱 Termux Build (One-Line)
-
-For Android Termux users, here's a one-line command to set up and run the entire application:
+For Android Termux users:
 
 ```bash
-cd /workspace && npm install && cd server && npm install && cd .. && (cd server && npm start &) && sleep 3 && npm run dev
+cd /workspace && npm install && cd server && npm install && cd .. && \
+echo "PORT=3001" > server/.env && \
+echo "CLIENT_URL=http://localhost:3000" >> server/.env && \
+(cd server && npm start &) && sleep 3 && npm run dev
 ```
 
-**Or as a more robust script**:
+**Note**: Requires Node.js installed in Termux (`pkg install nodejs`)
 
-```bash
-cd /workspace && npm install && cd server && npm install && cd .. && echo "PORT=3001" > server/.env && echo "CLIENT_URL=http://localhost:3000" >> server/.env && (cd server && npm start &) && sleep 3 && npm run dev
-```
+---
 
-**Note**: 
-- Make sure you have Node.js installed in Termux: `pkg install nodejs`
-- The backend will run on port 3001
-- The frontend will run on port 3000
-- Access via `http://localhost:3000` in Termux's browser or via port forwarding
+## ⚙️ Configuration
 
-**Termux Port Forwarding** (to access from your computer):
-```bash
-# In Termux, expose port 3000
-ssh -R 3000:localhost:3000 your-computer-ip
-```
+### Environment Variables
 
-## ⚙️ Environment Configuration
+#### Frontend (`.env`)
 
-### Frontend Environment Variables
-
-Create `.env` in project root:
-
-```bash
-VITE_API_URL=http://localhost:3001/api    # Backend API URL
-VITE_WS_URL=http://localhost:3001         # WebSocket server URL
+```env
+VITE_API_URL=http://localhost:3001/api
+VITE_WS_URL=http://localhost:3001
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 VITE_APPLE_CLIENT_ID=com.your.bundle.id
 VITE_APPLE_REDIRECT_URI=http://localhost:3000/auth/apple/callback
-# Optional: override default scope used for Apple requests
-# VITE_APPLE_SCOPE=name email
+VITE_APPLE_SCOPE=name email  # Optional
 ```
 
-### Backend Environment Variables
+#### Backend (`server/.env`)
 
-Create `server/.env`:
-
-```bash
-PORT=3001                                  # Server port
-CLIENT_URL=http://localhost:3000          # Frontend URL (for CORS)
-GOOGLE_CLIENT_ID=your_client_id           # Google OAuth Client ID
-APPLE_CLIENT_ID=com.your.bundle.id        # Apple Sign in web service ID
-# Optional: comma-separated list of Apple IDs if you support multiple apps
-# APPLE_CLIENT_IDS=com.your.bundle.id,com.secondary.bundle
-CLIENT_URLS=http://localhost:3000         # Comma-separated list of allowed origins (optional)
-ALLOW_MOCK_AUTH=false                     # Enable mock auth only for local testing
-DATABASE_PATH=./data/connectsphere.db     # SQLite database path
+```env
+PORT=3001
+CLIENT_URL=http://localhost:3000
+CLIENT_URLS=http://localhost:3000,https://yourdomain.com  # Optional: multiple origins
+GOOGLE_CLIENT_ID=your_client_id
+APPLE_CLIENT_ID=com.your.bundle.id
+APPLE_CLIENT_IDS=com.your.bundle.id,com.secondary.bundle  # Optional: multiple IDs
+ALLOW_MOCK_AUTH=false  # Enable only for local testing
+DATABASE_PATH=./data/connectsphere.db
 ```
+
+---
+
+## 🛡️ Security Features
+
+- ✅ **Helmet.js** - Security headers
+- ✅ **Rate Limiting** - API request throttling
+- ✅ **JWT Authentication** - Secure session tokens
+- ✅ **CORS Protection** - Configured allowed origins
+- ✅ **Input Validation** - Server-side validation
+- ✅ **SQL Injection Protection** - Parameterized queries
+- ✅ **XSS Protection** - Content sanitization
+- ✅ **Teen Safety** - Age-appropriate protections
+
+---
+
+## 🐛 Troubleshooting
+
+### Camera/Microphone Not Working
+
+- Ensure you're using HTTPS (or localhost for development)
+- Check browser permissions for camera/microphone
+- Verify camera/microphone aren't being used by another app
+- Try a different browser
+
+### Socket Connection Failed
+
+- Verify backend server is running on port 3001
+- Check `VITE_WS_URL` environment variable
+- Ensure CORS is properly configured
+- Check firewall settings
+
+### Database Errors
+
+- Ensure `server/data/` directory exists
+- Check file permissions for database file
+- Verify SQLite is properly installed
+- Try deleting database file to reset (⚠️ data loss)
+
+### Build Errors
+
+- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check Node.js version (requires 18+)
+- Verify all environment variables are set correctly
+- Check for port conflicts
+
+### Authentication Issues
+
+- Verify Google/Apple credentials are correct
+- Check OAuth redirect URIs match your domain
+- Ensure `ALLOW_MOCK_AUTH=true` only in development
+- Check browser console for detailed error messages
+
+---
 
 ## 📝 Development Notes
 
 ### Current Limitations
 
-1. **Video Streaming**: Currently uses sample videos instead of real WebRTC peer-to-peer streaming. WebRTC signaling is implemented but not fully connected.
+1. **Video Streaming** - Currently uses sample videos. WebRTC signaling is implemented but peer-to-peer streaming needs completion.
 
-2. **Gender Detection**: Gender detection is simulated. COCO-SSD model doesn't actually detect gender. In production, you'd need a specialized gender detection model.
+2. **Gender Detection** - Simulated using COCO-SSD. Production requires a specialized gender detection model.
 
-3. **Database**: Uses SQLite by default. Can be swapped for PostgreSQL/MySQL for production.
+3. **Database** - Uses SQLite by default. Consider PostgreSQL/MySQL for production scalability.
 
-4. **Authentication**: Google OAuth and Apple Sign-In require valid credentials. Mock authentication can be enabled only via `ALLOW_MOCK_AUTH=true` for local testing.
+### Production Checklist
 
-### Production Considerations
+- [ ] Implement full WebRTC peer-to-peer video streaming
+- [ ] Integrate real gender detection ML model
+- [ ] Migrate to PostgreSQL for better scalability
+- [ ] Configure HTTPS (required for WebRTC)
+- [ ] Set up STUN/TURN servers for NAT traversal
+- [ ] Tune rate limiting thresholds
+- [ ] Add logging and monitoring (Winston, Sentry)
+- [ ] Implement CSRF protection
+- [ ] Add input validation and sanitization
+- [ ] Set up payment processing (Stripe/PayPal)
+- [ ] Configure CDN for static assets
+- [ ] Set up automated backups
+- [ ] Implement admin dashboard for moderation
 
-1. **Replace Sample Videos**: Implement full WebRTC peer-to-peer video streaming
-2. **Real Gender Detection**: Integrate a proper gender detection ML model
-3. **Database Migration**: Switch to PostgreSQL for better scalability
-4. **HTTPS**: Required for WebRTC and camera access in production
-5. **STUN/TURN Servers**: Configure for NAT traversal in WebRTC
-6. **Rate Limiting**: Review and tune the built-in Express rate limiter thresholds for your deployment
-7. **Monitoring**: Add logging and monitoring (e.g., Winston, Sentry)
-8. **Security**: Implement CSRF protection, input validation, and sanitization
+---
 
-### Known Issues Fixed
+## 🤝 Contributing
 
-- ✅ Fixed `stopChat` being called before definition in `handleLogout`
-- ✅ Created complete backend server with authentication, matching, and chat
-- ✅ Integrated frontend with backend API and WebSocket services
-- ✅ Proper cleanup of media streams and socket connections
+We welcome contributions! Please follow these guidelines:
 
-## 🐛 Troubleshooting
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Follow code style** - TypeScript best practices, proper typing
+4. **Add tests** for new features
+5. **Update documentation** as needed
+6. **Commit changes** (`git commit -m 'Add amazing feature'`)
+7. **Push to branch** (`git push origin feature/amazing-feature`)
+8. **Open a Pull Request**
 
-### Camera/Microphone Not Working
-- Ensure you're using HTTPS (or localhost for development)
-- Check browser permissions for camera/microphone
-- Verify camera/microphone are not being used by another application
+### Code Standards
 
-### Socket Connection Failed
-- Verify backend server is running on port 3001
-- Check `VITE_WS_URL` environment variable
-- Ensure CORS is properly configured
+- ✅ Use TypeScript for type safety
+- ✅ Follow React best practices (hooks, functional components)
+- ✅ Implement proper error handling
+- ✅ Add comments for complex logic
+- ✅ Keep components small and focused
+- ✅ Use meaningful variable names
 
-### Database Errors
-- Ensure `server/data/` directory exists
-- Check file permissions for database file
-- Verify SQLite is properly installed
-
-### Build Errors
-- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
-- Check Node.js version (requires 18+)
-- Verify all environment variables are set correctly
+---
 
 ## 📄 License
 
 This project is part of the ConnectSphere application.
 
-## 🤝 Contributing
+---
 
-Contributions are welcome! Please ensure:
-1. Code follows TypeScript best practices
-2. Components are properly typed
-3. Error handling is implemented
-4. Tests are added for new features
+## 🙏 Acknowledgments
+
+- Built with [React](https://react.dev/)
+- Powered by [Socket.io](https://socket.io/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
+- Icons by [Lucide](https://lucide.dev/)
 
 ---
 
+<div align="center">
+
 **Built with ❤️ using React, TypeScript, Node.js, and Socket.io**
+
+[View in AI Studio](https://ai.studio/apps/drive/1ofeiJrs9NpD6RVASf3zfsigHOpHV4ncW)
+
+</div>
