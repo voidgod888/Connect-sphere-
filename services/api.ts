@@ -37,32 +37,47 @@ class ApiService {
     localStorage.removeItem('auth_token');
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const token = this.getToken();
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    private async request<T>(
+      endpoint: string,
+      options: RequestInit = {}
+    ): Promise<T> {
+      const token = this.getToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      let response: Response;
+      try {
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          ...options,
+          headers,
+        });
+      } catch (networkError) {
+        throw new Error('Network request failed');
+      }
+
+      let payload: any = null;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        payload = await response.json().catch(() => null);
+      }
+
+      if (!response.ok) {
+        const errorMessage = (payload && payload.error) || `HTTP error ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      if (payload === null) {
+        return {} as T;
+      }
+
+      return payload as T;
     }
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
-  }
 
   async authGoogle(token: string, identity?: string, country?: string): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>('/auth/google', {
@@ -74,6 +89,17 @@ class ApiService {
     }
     return response;
   }
+
+    async authApple(identityToken: string, identity?: string, country?: string): Promise<AuthResponse> {
+      const response = await this.request<AuthResponse>('/auth/apple', {
+        method: 'POST',
+        body: JSON.stringify({ identityToken, identity, country }),
+      });
+      if (response.token) {
+        this.setToken(response.token);
+      }
+      return response;
+    }
 
   async authMock(email: string, name?: string, identity?: string, country?: string): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>('/auth/mock', {
