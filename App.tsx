@@ -313,15 +313,32 @@ const App: React.FC = () => {
         // Continue anyway
       }
       
-      // --- OPTIMIZATION: Request higher quality video ---
-      const videoConstraints: MediaTrackConstraints = {
+      // --- MOBILE DETECTION AND OPTIMIZATION ---
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                       (window.innerWidth <= 768) ||
+                       ('ontouchstart' in window);
+      
+      // Mobile-friendly video constraints
+      const videoConstraints: MediaTrackConstraints = isMobile ? {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
+        frameRate: { ideal: 24, max: 30 },
+        facingMode: 'user'
+      } : {
         width: { ideal: 1280 },
         height: { ideal: 720 },
         frameRate: { ideal: 30 },
         facingMode: 'user'
       };
       
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: videoConstraints, 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       setLocalStream(stream);
       localStreamRef.current = stream;
       findNext();
@@ -335,12 +352,18 @@ const App: React.FC = () => {
             message = 'No camera or microphone was found. Please connect a device and try again.';
           } else if (err.name === 'OverconstrainedError') {
             message = 'Your camera does not support the requested HD resolution. Trying with lower quality...';
-            // Try with lower quality
+            // Try with lower quality (mobile-friendly fallback)
             try {
-              const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                audio: true 
-              });
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                               (window.innerWidth <= 768);
+              const fallbackConstraints = isMobile ? {
+                video: { facingMode: 'user' }, // Let device choose resolution
+                audio: true
+              } : {
+                video: { width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: true
+              };
+              const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
               setLocalStream(fallbackStream);
               localStreamRef.current = fallbackStream;
               findNext();
@@ -599,6 +622,28 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [chatState, verificationStatus, findNext, stopChat, localStream]);
 
+  // Handle orientation changes and mobile viewport fixes
+  useEffect(() => {
+    const handleResize = () => {
+      // Fix iOS viewport height issue
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    const handleOrientationChange = () => {
+      setTimeout(handleResize, 100);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       stopMediaTracks(localStreamRef.current);
@@ -629,24 +674,25 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
+          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown safe-area-top">
+            <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
                 Connect<span className="text-blue-400">Sphere</span>
               </h1>
               {chatState !== 'idle' ? (
                  <button
                   onClick={() => stopChat(false)}
-                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30 text-sm sm:text-base touch-manipulation"
                 >
                   Stop
                 </button>
               ) : (
-                <div className="flex items-center gap-4 animate-fadeInRight">
-                  <span className="text-gray-300 font-medium">Welcome, {user?.name}!</span>
+                <div className="flex items-center gap-2 sm:gap-4 animate-fadeInRight">
+                  <span className="text-gray-300 font-medium text-xs sm:text-base hidden sm:inline">Welcome, {user?.name}!</span>
+                  <span className="text-gray-300 font-medium text-xs sm:hidden">{user?.name?.split(' ')[0] || 'User'}!</span>
                   <button
                     onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30 text-sm sm:text-base touch-manipulation"
                   >
                     Logout
                   </button>
