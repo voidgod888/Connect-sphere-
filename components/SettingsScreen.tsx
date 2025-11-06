@@ -79,7 +79,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
   const [country, setCountry] = useState<string>('Global');
   const [interests, setInterests] = useState<Interest[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
-  const [ageRange, setAgeRange] = useState<{ min: number; max: number }>({ min: 18, max: 99 });
+  const [ageRange, setAgeRange] = useState<{ min: number; max: number }>({ min: 13, max: 99 });
   const [safeMode, setSafeMode] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -221,7 +221,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
                       <label className="text-sm text-gray-400 mb-1 block">Min Age</label>
                       <input
                         type="range"
-                        min="18"
+                        min="13"
                         max="99"
                         value={ageRange.min}
                         onChange={(e) => setAgeRange(prev => ({ ...prev, min: Math.min(parseInt(e.target.value), prev.max - 1) }))}
@@ -234,7 +234,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onStart, error }
                       <label className="text-sm text-gray-400 mb-1 block">Max Age</label>
                       <input
                         type="range"
-                        min="18"
+                        min="13"
                         max="99"
                         value={ageRange.max}
                         onChange={(e) => setAgeRange(prev => ({ ...prev, max: Math.max(parseInt(e.target.value), prev.min + 1) }))}

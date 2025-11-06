@@ -36,9 +36,10 @@ This document describes all the creative features that have been added to Connec
 ### 3. Age Range Filter
 - **Location**: `components/SettingsScreen.tsx`
 - **Features**:
-  - Dual slider for min/max age selection (18-99)
+  - Dual slider for min/max age selection (13-99)
   - Real-time age range adjustment
   - Filter matches within specified age range
+  - Age 13+ supported with enhanced teen safety features
 
 ### 4. Queue Statistics
 - **Files**: `components/QueueStatsDisplay.tsx`
@@ -254,12 +255,16 @@ This document describes all the creative features that have been added to Connec
   - Age-restricted content blocking
   - Priority for family-friendly matches
 
-### 4. Time Limits & Parental Controls
-- **Database**: Session duration tracking
+### 4. Time Limits & Teen Safety
+- **Files**: `server/middleware/teenSafety.js`, `components/TeenSafetyMode.tsx`
 - **Features**:
   - Track daily usage time
-  - Session duration limits
-  - Parental oversight capabilities
+  - Session duration limits (30-60 min based on age)
+  - Daily usage limits (2-4 hours based on age)
+  - Teen safety mode for users under 18
+  - Age-appropriate matching (max 2-3 year difference)
+  - Enhanced safety guidelines and warnings
+  - Priority report review for teens (within 1 hour)
 
 ### 5. Block System
 - **Features**:

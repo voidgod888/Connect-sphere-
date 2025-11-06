@@ -63,15 +63,23 @@ settingsRouter.put('/advanced', authenticateToken, (req, res) => {
     settingsQueries.createUserSettings.run(userId);
 
     // Update settings
+    // Get user age to apply teen safety defaults
+    const user = database.prepare('SELECT age FROM users WHERE id = ?').get(userId);
+    const isTeen = user && user.age && user.age < 18;
+    
+    // Apply teen safety defaults
+    const safeProfanityFilter = isTeen ? 'high' : (profanityFilter || 'medium');
+    const safeSafeMode = isTeen ? true : (safeMode || false);
+    
     settingsQueries.updateUserSettings.run(
       theme || 'dark',
       connectionQuality || 'auto',
       autoSkipMismatch ? 1 : 0,
       minChatDuration || 0,
-      profanityFilter || 'medium',
+      safeProfanityFilter,
       showTypingIndicator !== false ? 1 : 0,
-      safeMode ? 1 : 0,
-      ageRange?.min || 18,
+      safeSafeMode ? 1 : 0,
+      ageRange?.min || 13,
       ageRange?.max || 99,
       userId
     );

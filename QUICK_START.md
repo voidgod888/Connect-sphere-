@@ -2,6 +2,15 @@
 
 This guide will help you quickly integrate and use the new features added to ConnectSphere.
 
+## ⚠️ Important: Age 13+ Support
+
+ConnectSphere now supports users aged **13 and above** with comprehensive teen safety features.
+
+**Quick Links**:
+- 📖 [Teen Safety Documentation](./TEEN_SAFETY.md)
+- 💡 [Teen Safety Integration Examples](./TEEN_SAFETY_INTEGRATION.tsx)
+- ✅ [Age 13+ Implementation Summary](./AGE_13_PLUS_SUMMARY.md)
+
 ## 📦 Installation
 
 No new dependencies needed! All features use existing libraries:
