@@ -9,7 +9,6 @@ import { initDatabase } from './database/db.js';
 import { authRouter } from './routes/auth.js';
 import { userRouter } from './routes/users.js';
 import { statsRouter } from './routes/stats.js';
-import { premiumRouter } from './routes/premium.js';
 import { settingsRouter } from './routes/settings.js';
 import { matchingService } from './services/matching.js';
 import { socketHandler } from './socket/socketHandler.js';
@@ -66,7 +65,6 @@ initDatabase();
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/stats', statsRouter);
-app.use('/api/premium', premiumRouter);
 app.use('/api/settings', settingsRouter);
 
 // Health check
