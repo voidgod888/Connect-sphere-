@@ -218,7 +218,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const displayError = error ?? localError;
 
   return (
-    <div className="h-full w-full relative flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900 overflow-hidden">
     <div className="h-full w-full relative flex items-center justify-center p-3 sm:p-4 bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900 overflow-hidden safe-area-top safe-area-bottom">
       {/* Animated background particles */}
       <div className="particles">
@@ -238,9 +237,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       <div className="w-full max-w-md mx-auto text-center relative z-10">
         <div className="animate-fadeInUp">
-          <div className="mb-6 inline-block animate-float">
-            <div
-              className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl animate-gradient"
           <div className="mb-4 sm:mb-6 inline-block animate-float">
             <div 
               className="w-20 h-20 sm:w-24 sm:h-24 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl animate-gradient" 
@@ -252,20 +248,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <span className="text-3xl sm:text-4xl font-bold text-white">C</span>
             </div>
           </div>
-
-          <h1
-            className="text-4xl sm:text-5xl font-bold text-white tracking-wider mb-4 animate-fadeInUp"
-            style={{ animationDelay: '0.1s', opacity: 0, animationFillMode: 'forwards' }}
-          >
-            Welcome to Connect
-            <span className="text-blue-400 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">Sphere</span>
-          </h1>
-
-          <p
-            className="text-lg text-gray-300 mb-12 animate-fadeInUp"
-            style={{ animationDelay: '0.2s', opacity: 0, animationFillMode: 'forwards' }}
-          >
-            Securely join global conversations with verified identities.
           
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-wider mb-3 sm:mb-4 px-2 animate-fadeInUp" style={{ animationDelay: '0.1s', opacity: 0, animationFillMode: 'forwards' }}>
             Welcome to Connect<span className="text-blue-400 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">Sphere</span>
@@ -301,22 +283,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </button>
           </div>
 
-          <p
-            className="text-xs text-gray-400 mt-6 animate-fadeIn"
-            style={{ animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}
-          >
-            Authentication is required to keep our community safe. We never store your passwords.
-          <button
-            onClick={onLogin}
-            className="family group relative inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-3 sm:py-4 px-6 sm:px-10 rounded-xl shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform active:scale-95 focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden touch-manipulation"
-          >
-            <span className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-            <GoogleIcon />
-            <span className="relative z-10 text-sm sm:text-base">Sign in with Google</span>
-          </button>
-          
           <p className="text-xs text-gray-400 mt-6 sm:mt-8 px-4 animate-fadeIn" style={{ animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}>
-            A Google account is required to ensure a safe and moderated community.
+            Authentication is required to keep our community safe. We never store your passwords.
           </p>
 
           {displayError && (

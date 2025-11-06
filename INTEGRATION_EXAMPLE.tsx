@@ -66,6 +66,7 @@ const AppIntegrationExample = () => {
     activeUsers: 0,
     estimatedWait: 0
   });
+  const [chatState, setChatState] = useState<'idle' | 'requesting_permissions' | 'searching' | 'connected' | 'disconnected'>('idle');
 
   // LOAD USER DATA ON MOUNT
   useEffect(() => {

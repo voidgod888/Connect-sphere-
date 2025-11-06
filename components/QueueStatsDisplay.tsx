@@ -58,7 +58,7 @@ export const QueueStatsDisplay: React.FC<QueueStatsDisplayProps> = ({ stats }) =
           <p className="text-gray-400 text-xs mb-2">Active by Region</p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(stats.usersByRegion)
-              .sort(([, a], [, b]) => b - a)
+              .sort(([, a], [, b]) => (b as number) - (a as number))
               .slice(0, 5)
               .map(([region, count]) => (
                 <div
