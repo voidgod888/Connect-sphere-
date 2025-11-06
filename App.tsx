@@ -15,6 +15,8 @@ const App: React.FC = () => {
   // Auth State
   const [authState, setAuthState] = useState<AuthState>('unauthenticated');
   const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Chat State
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -63,13 +65,16 @@ const App: React.FC = () => {
     // Check for existing session
     const checkSession = async () => {
       try {
-        const user = await apiService.verifySession();
-        setUser(user);
+        const sessionUser = await apiService.verifySession();
+        setUser(sessionUser);
         setAuthState('authenticated');
+        setAuthError(null);
+        setIsAuthenticating(false);
         showToast('Welcome back!', 'success');
       } catch (error) {
         // No valid session
         apiService.clearToken();
+        setIsAuthenticating(false);
       }
     };
     
@@ -112,25 +117,49 @@ const App: React.FC = () => {
     }
   }, [cleanupVerification, currentMatchId]);
 
-  const handleLogin = async () => {
+  const authenticate = useCallback(async (
+    provider: 'google' | 'apple',
+    token: string,
+    fullName?: string
+  ) => {
+    if (!token) {
+      const message = 'Authentication token is missing. Please try again.';
+      setAuthError(message);
+      showToast(message, 'error');
+      return;
+    }
+
+    setIsAuthenticating(true);
+    setAuthError(null);
+
     try {
-      // Use mock authentication for now (can be updated to use Google OAuth)
-      const response = await apiService.authMock(
-        'demo.user@example.com',
-        'Demo User',
-        'male',
-        'Global'
-      );
+      const response = provider === 'google'
+        ? await apiService.authGoogle(token)
+        : await apiService.authApple(token, undefined, undefined, fullName);
+
       setUser(response.user);
       setAuthState('authenticated');
-      showToast('Successfully logged in!', 'success');
-    } catch (error) {
-      console.error('Login error:', error);
-      const errorMsg = 'Failed to login. Please try again.';
-      setError(errorMsg);
-      showToast(errorMsg, 'error');
+      showToast('Successfully signed in!', 'success');
+    } catch (err) {
+      console.error(`${provider} authentication error:`, err);
+      const message = err instanceof Error
+        ? err.message
+        : 'Authentication failed. Please try again.';
+      setAuthError(message);
+      showToast(message, 'error');
+      apiService.clearToken();
+    } finally {
+      setIsAuthenticating(false);
     }
-  };
+  }, [showToast]);
+
+  const handleGoogleLogin = useCallback((credential: string) => {
+    authenticate('google', credential);
+  }, [authenticate]);
+
+  const handleAppleLogin = useCallback((identityToken: string, fullName?: string) => {
+    authenticate('apple', identityToken, fullName);
+  }, [authenticate]);
 
   const handleLogout = useCallback(async () => {
     if (chatState !== 'idle') {
@@ -150,6 +179,8 @@ const App: React.FC = () => {
     
     setUser(null);
     setAuthState('unauthenticated');
+    setAuthError(null);
+    setIsAuthenticating(false);
     setBlockedPartners([]);
     setCurrentMatchId(null);
     showToast('Logged out successfully', 'info');
@@ -588,7 +619,13 @@ const App: React.FC = () => {
       
       {authState === 'unauthenticated' ? (
         <div className="animate-fadeIn">
-          <LoginScreen onLogin={handleLogin} />
+          <LoginScreen
+            onGoogleLogin={handleGoogleLogin}
+            onAppleLogin={handleAppleLogin}
+            isLoading={isAuthenticating}
+            error={authError}
+            onError={setAuthError}
+          />
         </div>
       ) : (
         <>
