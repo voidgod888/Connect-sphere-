@@ -71,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         <div className="animate-fadeInUp" style={{ animationDelay: '0.3s', opacity: 0, animationFillMode: 'forwards' }}>
           <button
             onClick={onLogin}
-            className="family group relative inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-4 px-10 rounded-xl shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden"
+            className="family group relative inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-4 px-10 rounded-xl shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden touch-manipulation"
           >
             <span className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
             <GoogleIcon />

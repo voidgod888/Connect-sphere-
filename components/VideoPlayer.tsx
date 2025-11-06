@@ -53,6 +53,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
       className="group w-full h-full bg-black flex items-center justify-center relative overflow-hidden animate-fadeIn"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={() => setIsHovered(true)}
+      onTouchEnd={() => setTimeout(() => setIsHovered(false), 2000)}
     >
        {isCameraOff ? (
         <div className="w-full h-full flex items-center justify-center bg-gray-900 animate-fadeIn">
@@ -83,6 +85,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
           playsInline
           muted={muted}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          style={{ WebkitPlaysinline: true } as React.CSSProperties}
         />
       )}
        {showVolumeControl && !isCameraOff && stream && (

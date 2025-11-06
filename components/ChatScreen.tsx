@@ -142,7 +142,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           
           {/* Connection status indicator */}
           {chatState === 'connected' && verificationStatus === 'verified' && (
-            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex flex-col gap-2 z-20">
               <div className="flex items-center gap-2 bg-green-500/20 backdrop-blur-sm px-3 py-2 rounded-full border border-green-500/50 animate-fadeInDown">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-sm text-green-300 font-medium">Connected</span>
@@ -168,12 +168,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
 
         {/* Local video preview */}
-        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 w-36 h-auto sm:w-48 md:w-64 z-20 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700/50 backdrop-blur-sm animate-scaleIn hover:border-blue-500/50 transition-all duration-300">
+        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 md:top-6 md:left-6 w-24 h-auto sm:w-36 md:w-48 lg:w-64 z-20 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700/50 backdrop-blur-sm animate-scaleIn hover:border-blue-500/50 transition-all duration-300">
           <VideoPlayer stream={localStream} muted={true} isCameraOff={isCameraOff}/>
         </div>
         
         {/* Controls */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-20 animate-fadeInUp">
+        <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 z-20 animate-fadeInUp safe-area-inset-bottom">
           <Controls
             onNext={onNext}
             onStop={onStop}
@@ -188,7 +188,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       </div>
 
       {/* Chat Panel */}
-      <div className="w-full h-[40vh] md:h-full md:w-80 lg:w-96 bg-gray-800/95 backdrop-blur-md flex flex-col border-t-2 md:border-t-0 md:border-l-2 border-gray-700/50 animate-slideInRight shadow-2xl">
+      <div className="w-full h-[40vh] md:h-full md:w-80 lg:w-96 bg-gray-800/95 backdrop-blur-md flex flex-col border-t-2 md:border-t-0 md:border-l-2 border-gray-700/50 animate-slideInRight shadow-2xl safe-area-inset-bottom">
         <div className="p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm">
           <h3 className="text-lg font-semibold text-center text-white flex items-center justify-center gap-2">
             <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

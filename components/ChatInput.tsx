@@ -83,7 +83,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onTyping, m
   }, []);
 
   return (
-    <div className="p-4 bg-gray-900/80 backdrop-blur-sm border-t border-gray-700/50 animate-fadeInUp">
+    <div className="p-3 sm:p-4 bg-gray-900/80 backdrop-blur-sm border-t border-gray-700/50 animate-fadeInUp safe-area-inset-bottom">
       {showEmojiPicker && (
         <div className="absolute bottom-full left-4 mb-2 bg-gray-800 rounded-xl p-3 shadow-2xl border border-gray-700/50 z-50 animate-scaleIn">
           <div className="grid grid-cols-5 gap-2 max-w-xs">
@@ -107,7 +107,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onTyping, m
         <button
           type="button"
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700/80 text-gray-300 hover:bg-gray-600 transition-all duration-200 hover:scale-110"
+          className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-gray-700/80 text-gray-300 hover:bg-gray-600 transition-all duration-200 hover:scale-110 touch-manipulation"
           aria-label="Open emoji picker"
         >
           <Smile size={20} />
@@ -125,7 +125,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onTyping, m
             }}
             placeholder="Type a message..."
             maxLength={500}
-            className={`w-full bg-gray-700/80 text-white placeholder-gray-400 rounded-full py-3 pl-5 pr-14 focus:outline-none transition-all duration-300 ${
+            className={`w-full bg-gray-700/80 text-white placeholder-gray-400 rounded-full py-2.5 sm:py-3 pl-4 sm:pl-5 pr-12 sm:pr-14 text-sm sm:text-base focus:outline-none transition-all duration-300 ${
               isFocused 
                 ? 'ring-2 ring-blue-500 bg-gray-700 shadow-lg shadow-blue-500/20 scale-[1.02]' 
                 : 'focus:ring-2 focus:ring-blue-500'
@@ -138,7 +138,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, onTyping, m
         </div>
         <button
           type="submit"
-          className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 transform ${
+          className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full transition-all duration-300 transform touch-manipulation ${
             text.trim()
               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95'
               : 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'

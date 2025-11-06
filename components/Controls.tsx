@@ -22,7 +22,7 @@ const ControlButton: React.FC<{
 }> = ({ onClick, disabled = false, children, className = '', ariaLabel, variant = 'default' }) => {
   const [isPressed, setIsPressed] = useState(false);
 
-  const baseClasses = 'w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
+  const baseClasses = 'w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 transform focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none touch-manipulation';
   
   const variantClasses = {
     default: 'bg-gray-700/90 text-white hover:bg-gray-600 focus:ring-gray-500',
@@ -87,7 +87,7 @@ export const Controls: React.FC<ControlsProps> = ({
           </div>
         </div>
       )}
-      <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
+      <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 bg-black/40 backdrop-blur-md p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp overflow-x-auto">
       <ControlButton
         onClick={onToggleMute}
         ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}

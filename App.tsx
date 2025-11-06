@@ -11,6 +11,21 @@ import { apiService } from './services/api';
 import { socketService } from './services/socketService';
 import { PARTNER_VIDEOS } from './constants';
 
+// Mobile device detection utility
+const isMobileDevice = (): boolean => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+};
+
+const isIOS = (): boolean => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+const isAndroid = (): boolean => {
+  return /Android/.test(navigator.userAgent);
+};
+
 const App: React.FC = () => {
   // Auth State
   const [authState, setAuthState] = useState<AuthState>('unauthenticated');
@@ -282,15 +297,54 @@ const App: React.FC = () => {
         // Continue anyway
       }
       
-      // --- OPTIMIZATION: Request higher quality video ---
-      const videoConstraints: MediaTrackConstraints = {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30 },
-        facingMode: 'user'
-      };
+      // --- Mobile-optimized video constraints ---
+      const isMobile = isMobileDevice();
+      const isIOSDevice = isIOS();
       
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      let videoConstraints: MediaTrackConstraints;
+      
+      if (isMobile) {
+        // Mobile devices: use lower resolution for better performance
+        // iOS Safari has better support for 640x480, Android can handle slightly higher
+        if (isIOSDevice) {
+          videoConstraints = {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 },
+            facingMode: 'user'
+          };
+        } else {
+          // Android devices
+          videoConstraints = {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24 },
+            facingMode: 'user'
+          };
+        }
+      } else {
+        // Desktop: higher quality
+        videoConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 },
+          facingMode: 'user'
+        };
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: videoConstraints, 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          // Mobile-specific audio optimizations
+          ...(isMobile && {
+            sampleRate: 16000,
+            channelCount: 1
+          })
+        } 
+      });
       setLocalStream(stream);
       localStreamRef.current = stream;
       findNext();
@@ -303,13 +357,15 @@ const App: React.FC = () => {
           } else if (err.name === 'NotFoundError') {
             message = 'No camera or microphone was found. Please connect a device and try again.';
           } else if (err.name === 'OverconstrainedError') {
-            message = 'Your camera does not support the requested HD resolution. Trying with lower quality...';
-            // Try with lower quality
+            message = 'Your camera does not support the requested resolution. Trying with lower quality...';
+            // Try with minimal quality constraints
             try {
-              const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                audio: true 
-              });
+              const isMobile = isMobileDevice();
+              const fallbackConstraints = isMobile 
+                ? { video: { facingMode: 'user' }, audio: true }
+                : { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true };
+              
+              const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
               setLocalStream(fallbackStream);
               localStreamRef.current = fallbackStream;
               findNext();
@@ -568,6 +624,36 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [chatState, verificationStatus, findNext, stopChat, localStream]);
 
+  // Handle orientation changes on mobile devices
+  useEffect(() => {
+    if (!isMobileDevice()) return;
+
+    const handleOrientationChange = () => {
+      // Force a small delay to allow orientation change to complete
+      setTimeout(() => {
+        // Trigger a reflow to ensure video elements resize properly
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.style.display = 'none';
+          void remoteVideoRef.current.offsetHeight; // Trigger reflow
+          remoteVideoRef.current.style.display = '';
+        }
+        if (partnerVideoElementRef.current) {
+          partnerVideoElementRef.current.style.display = 'none';
+          void partnerVideoElementRef.current.offsetHeight; // Trigger reflow
+          partnerVideoElementRef.current.style.display = '';
+        }
+      }, 100);
+    };
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       stopMediaTracks(localStreamRef.current);
@@ -581,7 +667,14 @@ const App: React.FC = () => {
   return (
     <div className="w-full h-screen overflow-hidden bg-gray-900 flex flex-col font-sans">
       {/* Hidden video element to generate partner streams */}
-      <video ref={partnerVideoElementRef} style={{ display: 'none' }} crossOrigin="anonymous" playsInline loop muted />
+      <video 
+        ref={partnerVideoElementRef} 
+        style={{ display: 'none', WebkitPlaysinline: true } as React.CSSProperties} 
+        crossOrigin="anonymous" 
+        playsInline 
+        loop 
+        muted 
+      />
       
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -592,24 +685,24 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
+          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown safe-area-inset-top">
+            <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
                 Connect<span className="text-blue-400">Sphere</span>
               </h1>
               {chatState !== 'idle' ? (
                  <button
                   onClick={() => stopChat(false)}
-                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30 touch-manipulation"
                 >
                   Stop
                 </button>
               ) : (
-                <div className="flex items-center gap-4 animate-fadeInRight">
-                  <span className="text-gray-300 font-medium">Welcome, {user?.name}!</span>
+                <div className="flex items-center gap-2 sm:gap-4 animate-fadeInRight">
+                  <span className="text-gray-300 text-xs sm:text-base font-medium hidden sm:inline">Welcome, {user?.name}!</span>
                   <button
                     onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-700 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30 touch-manipulation"
                   >
                     Logout
                   </button>
