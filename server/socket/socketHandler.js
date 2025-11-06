@@ -315,9 +315,7 @@ export function socketHandler(socket, io) {
       }
 
       const { matchId } = data || {};
-      const match = matchId ? 
-        matchQueries.findActiveByUserId.get(socket.userId, socket.userId) :
-        matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
 
       if (!match) {
         callback({ error: 'No active match found' });
