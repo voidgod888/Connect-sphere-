@@ -400,7 +400,6 @@ connectsphere/
 │   ├── KeyboardShortcutsPanel.tsx
 │   ├── LanguageSelector.tsx
 │   ├── LeaderboardPanel.tsx
-│   ├── LoginScreen.tsx
 │   ├── NetworkDiagnostics.tsx
 │   ├── QueueStatsDisplay.tsx
 │   ├── SettingsScreen.tsx

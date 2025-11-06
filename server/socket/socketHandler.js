@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import { matchQueries, messageQueries, blockQueries, reportQueries } from '../database/db.js';
 import { matchingService } from '../services/matching.js';
 
 const activeSockets = new Map(); // Map<socketId, userId>
@@ -146,22 +145,14 @@ export function socketHandler(socket, io) {
       }
 
       // Verify user is part of this match
-      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
-      if (!match || match.id !== matchId) {
+      const pair = matchSocketPairs.get(matchId);
+      if (!pair || (pair.user1Id !== socket.userId && pair.user2Id !== socket.userId)) {
         callback({ error: 'Invalid match' });
         return;
       }
 
-      // Save message
+      // Create message (no database storage)
       const messageId = `msg_${uuidv4()}`;
-      messageQueries.create.run(messageId, matchId, socket.userId, sanitizedText);
-
-      // Get partner socket
-      const pair = matchSocketPairs.get(matchId);
-      if (!pair) {
-        callback({ error: 'Match session not found' });
-        return;
-      }
 
       const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
       
@@ -198,13 +189,12 @@ export function socketHandler(socket, io) {
 
       if (!matchId) return;
 
-      // Verify user is part of this match
-      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
-      if (!match || match.id !== matchId) return;
-
-      // Get partner socket
+      // Get partner socket from match pair
       const pair = matchSocketPairs.get(matchId);
       if (!pair) return;
+
+      // Verify user is part of this match
+      if (pair.user1Id !== socket.userId && pair.user2Id !== socket.userId) return;
 
       const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
       const partnerSocket = io.sockets.sockets.get(partnerSocketId);
@@ -258,37 +248,44 @@ export function socketHandler(socket, io) {
   socket.on('end-match', (data, callback) => {
     try {
       if (!socket.userId) {
-        callback({ error: 'Not authenticated' });
+        callback?.({ error: 'Not authenticated' });
         return;
       }
 
       const { matchId } = data || {};
-      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
-
-      if (!match) {
-        callback({ error: 'No active match found' });
+      
+      if (!matchId) {
+        callback?.({ error: 'Match ID required' });
         return;
       }
 
-      // End match
-      matchQueries.endMatch.run('ended', match.id);
-
-      const pair = matchSocketPairs.get(match.id);
-      if (pair) {
-        const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
-        const partnerSocket = io.sockets.sockets.get(partnerSocketId);
-        if (partnerSocket) {
-          partnerSocket.emit('match-ended');
-        }
-        
-        matchSocketPairs.delete(match.id);
+      const pair = matchSocketPairs.get(matchId);
+      if (!pair) {
+        callback?.({ error: 'No active match found' });
+        return;
       }
 
-      callback({ success: true });
+      // Verify user is part of this match
+      if (pair.user1Id !== socket.userId && pair.user2Id !== socket.userId) {
+        callback?.({ error: 'Invalid match' });
+        return;
+      }
+
+      // Notify partner
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      if (partnerSocket) {
+        partnerSocket.emit('match-ended');
+      }
+      
+      // Clean up match
+      matchSocketPairs.delete(matchId);
+
+      callback?.({ success: true });
 
     } catch (error) {
       console.error('End match error:', error);
-      callback({ error: 'Failed to end match' });
+      callback?.({ error: 'Failed to end match' });
     }
   });
 
@@ -307,17 +304,11 @@ export function socketHandler(socket, io) {
         return;
       }
 
-      // Create report
-      const reportId = `report_${uuidv4()}`;
-      reportQueries.create.run(reportId, socket.userId, reportedId, reason || null, matchId || null);
-
-      // Block user
-      const blockId = `block_${uuidv4()}`;
-      try {
-        blockQueries.create.run(blockId, socket.userId, reportedId);
-      } catch (error) {
-        // Block might already exist, ignore
-      }
+      // Block user in matching service (no database)
+      matchingService.blockUser(socket.userId, reportedId);
+      
+      // Log report (optional - in production you'd send to monitoring service)
+      console.log(`Report: User ${socket.userId} reported ${reportedId} for: ${reason || 'No reason provided'}`);
 
       callback({ success: true });
 
@@ -329,27 +320,26 @@ export function socketHandler(socket, io) {
 
   // Handle disconnection
   socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.userId}`);
+    
     if (socket.userId) {
+      // Remove from waiting queue
       matchingService.removeWaitingUser(socket.userId);
       activeSockets.delete(socket.id);
       userSockets.delete(socket.userId);
-      // Clean up rate limit (optional - can keep for a while)
-      // messageRateLimits.delete(socket.userId);
 
       // End any active matches
-      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
-      if (match) {
-        matchQueries.endMatch.run('disconnected', match.id);
-        
-        const pair = matchSocketPairs.get(match.id);
-        if (pair) {
+      for (const [matchId, pair] of matchSocketPairs.entries()) {
+        if (pair.user1Id === socket.userId || pair.user2Id === socket.userId) {
+          // Notify partner
           const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
           const partnerSocket = io.sockets.sockets.get(partnerSocketId);
           if (partnerSocket) {
             partnerSocket.emit('match-ended');
           }
           
-          matchSocketPairs.delete(match.id);
+          // Clean up match
+          matchSocketPairs.delete(matchId);
         }
       }
     }
