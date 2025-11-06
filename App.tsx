@@ -9,6 +9,7 @@ import { yoloService } from './services/yoloService';
 import { apiService } from './services/api';
 import { socketService } from './services/socketService';
 import { PARTNER_VIDEOS } from './constants';
+import { isMobileDevice } from './utils';
 
 const App: React.FC = () => {
   // Chat State
@@ -211,10 +212,7 @@ const App: React.FC = () => {
       }
       
       // --- MOBILE DETECTION AND OPTIMIZATION ---
-      const detectMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                                 (window.innerWidth <= 768) ||
-                                 ('ontouchstart' in window);
-      const isMobile = detectMobile();
+      const isMobile = isMobileDevice();
       
       // Mobile-friendly video constraints
       const videoConstraints: MediaTrackConstraints = isMobile ? {
@@ -252,7 +250,8 @@ const App: React.FC = () => {
             message = 'Your camera does not support the requested HD resolution. Trying with lower quality...';
             // Try with lower quality (mobile-friendly fallback)
             try {
-              const fallbackConstraints = isMobile ? {
+              const isMobileFallback = isMobileDevice();
+              const fallbackConstraints = isMobileFallback ? {
                 video: { facingMode: 'user' }, // Let device choose resolution
                 audio: true
               } : {

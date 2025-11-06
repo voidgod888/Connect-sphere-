@@ -1,5 +1,6 @@
+import type { User } from '../types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
 
 export interface AuthResponse {
   user: {
@@ -9,12 +10,6 @@ export interface AuthResponse {
   };
   token: string;
   expiresAt: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
 }
 
 class ApiService {

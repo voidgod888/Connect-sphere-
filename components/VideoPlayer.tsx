@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { isMobileDevice } from '../utils';
 
 interface VideoPlayerProps {
   stream: MediaStream | null;
@@ -48,9 +49,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted, isCamer
     return <Volume2 size={20} className="w-5 h-5 transition-transform duration-200 hover:scale-110"/>;
   }
 
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                   (window.innerWidth <= 768) ||
-                   ('ontouchstart' in window);
+  const isMobile = isMobileDevice();
 
   return (
     <div 
