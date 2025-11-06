@@ -449,6 +449,297 @@ echo "ALLOW_MOCK_AUTH=true" >> server/.env && \
 (cd server && npm start &) && sleep 3 && npm run dev
 ```
 
+## 📚 Detailed Component Documentation
+
+### Frontend Components
+
+#### `App.tsx` - Main Application Component
+**Purpose**: Root component managing application state and routing
+
+**Key Responsibilities**:
+- Authentication state management
+- Chat state management (idle, searching, connected)
+- Media stream handling (camera/microphone)
+- Socket connection management
+- Partner matching coordination
+- Gender verification using YOLO service
+- Toast notification system
+
+**State Management**:
+- `authState`: 'unauthenticated' | 'authenticated'
+- `chatState`: 'idle' | 'requesting_permissions' | 'searching' | 'connected'
+- `verificationStatus`: 'idle' | 'verifying' | 'verified' | 'mismatch'
+- `localStream`: User's camera/microphone stream
+- `remoteStream`: Partner's video stream
+- `currentPartner`: Current matched partner info
+- `messages`: Chat message history
+
+**Key Functions**:
+- `handleLogin()`: OAuth authentication handler (Google/Apple)
+- `handleLogout()`: Cleanup and session termination
+- `startChat()`: Initialize video permissions and start matching
+- `findNext()`: Join matching queue and find new partner
+- `stopChat()`: End current chat session
+- `handleReport()`: Report and block abusive users
+- `handleSendMessage()`: Send chat message via WebSocket
+
+#### `LoginScreen.tsx`
+**Purpose**: User authentication interface
+
+**Features**:
+- Google OAuth Sign-In button
+- Apple Sign-In button
+- Displays app branding
+
+#### `SettingsScreen.tsx`
+**Purpose**: User preference configuration before starting chat
+
+**Settings**:
+- **Identity**: Male, Female, or Multiple
+- **Partner Preference**: Male, Female, or Everyone
+- **Country**: Select from 200+ countries or "Global"
+
+**Flow**: After settings are submitted, requests camera/microphone permissions
+
+#### `ChatScreen.tsx`
+**Purpose**: Main video chat interface
+
+**Displays**:
+- Local video feed (user's camera)
+- Remote video feed (partner's video)
+- Chat message history
+- Verification status indicator
+- Control buttons (Next, Stop, Report)
+
+**States**:
+- **Searching**: Shows "Searching for partner..." message
+- **Connected**: Shows video feeds and chat interface
+- **Verifying**: Gender verification in progress
+- **Verified**: Partner verified, chat active
+- **Mismatch**: Partner doesn't match preference, auto-searching next
+
+#### `VideoPlayer.tsx`
+**Purpose**: Video element wrapper with controls
+
+**Features**:
+- Auto-play handling
+- Stream attachment
+- Responsive sizing
+
+#### `ChatHistory.tsx`
+**Purpose**: Message history display
+
+**Features**:
+- Scrollable message list
+- User vs Partner message styling
+- Timestamp display (if available)
+
+#### `ChatInput.tsx`
+**Purpose**: Message input field
+
+**Features**:
+- Send button
+- Enter key submission
+- Input validation
+
+#### `Controls.tsx`
+**Purpose**: Chat control buttons
+
+**Actions**:
+- **Next**: Find new partner
+- **Stop**: End chat session
+- **Report**: Report and block current partner
+
+#### `Toast.tsx`
+**Purpose**: Toast notification system
+
+**Types**: 'info' | 'success' | 'error' | 'warning'
+
+**Features**:
+- Auto-dismiss after duration
+- Manual dismiss
+- Stack multiple toasts
+
+### Frontend Services
+
+#### `services/api.ts` - REST API Client
+**Purpose**: HTTP client for backend API communication
+
+**Methods**:
+- `authGoogle(idToken, identity?, country?)`: Google OAuth authentication
+- `authApple(identityToken, identity?, country?)`: Apple Sign-In authentication
+- `logout()`: End session
+- `verifySession()`: Check if session is valid
+- `getCurrentUser()`: Get user profile
+- `updateUserSettings(identity?, country?)`: Update preferences
+- `healthCheck()`: Server health check
+
+**Token Management**:
+- Stores JWT token in localStorage
+- Automatically includes token in Authorization header
+- Handles token expiration
+
+#### `services/socketService.ts` - WebSocket Client
+**Purpose**: Real-time communication with backend
+
+**Connection**:
+- Connects to Socket.io server
+- Authenticates with session token
+- Handles reconnection
+
+**Methods**:
+- `connect()`: Establish WebSocket connection
+- `disconnect()`: Close connection
+- `joinQueue(preference, settings, callback)`: Join matching queue
+- `leaveQueue()`: Leave matching queue
+- `sendMessage(matchId, text, callback)`: Send chat message
+- `endMatch(matchId, callback)`: End current match
+- `reportUser(reportedId, reason?, matchId?, callback)`: Report user
+- `sendOffer/Answer/IceCandidate()`: WebRTC signaling
+
+**Event Listeners**:
+- `onMatchFound()`: Partner matched
+- `onMessage()`: New chat message received
+- `onMatchEnded()`: Match ended
+- `onOffer/Answer/IceCandidate()`: WebRTC signaling events
+
+#### `services/yoloService.ts` - Gender Detection Service
+**Purpose**: AI-based gender detection for partner verification
+
+**Implementation**:
+- Uses Web Worker for non-blocking processing
+- Loads YOLO model (COCO-SSD) in background
+- Processes video frames to detect gender
+- Currently simulated (COCO-SSD doesn't detect gender)
+
+**Methods**:
+- `loadModel()`: Initialize YOLO model
+- `detectGender(videoElement)`: Detect gender from video frame
+
+**Note**: Gender detection is simulated. In production, you'd need a specialized gender detection model.
+
+#### `services/yolo.worker.ts` - Web Worker
+**Purpose**: Background processing for YOLO model
+
+**Features**:
+- Loads TensorFlow.js and COCO-SSD model
+- Processes ImageBitmap from main thread
+- Returns detection results
+
+### Backend Components
+
+#### `server/index.js` - Express Server
+**Purpose**: Main server entry point
+
+**Setup**:
+- Creates HTTP server
+- Initializes Socket.io
+- Configures CORS
+- Sets up routes
+- Initializes database
+
+**Port**: Default 3001 (configurable via PORT env var)
+
+#### `server/database/db.js` - Database Layer
+**Purpose**: SQLite database initialization and queries
+
+**Tables**:
+- `users`: User accounts (id, name, email, google_id, identity, country, created_at, last_seen)
+- `sessions`: Active sessions (id, user_id, token, expires_at, created_at)
+- `matches`: Match records (id, user1_id, user2_id, status, created_at, ended_at)
+- `messages`: Chat messages (id, match_id, user_id, text, created_at)
+- `blocks`: User blocks (id, user_id, blocked_id, created_at)
+- `reports`: User reports (id, reporter_id, reported_id, reason, match_id, created_at)
+
+**Query Methods**:
+- User CRUD operations
+- Session management
+- Match tracking
+- Message storage
+- Block/report management
+
+#### `server/routes/auth.js` - Authentication Routes
+**Endpoints**:
+- `POST /api/auth/google`: Google OAuth authentication (mandatory)
+- `POST /api/auth/apple`: Apple Sign-In authentication (optional)
+- `POST /api/auth/logout`: Logout and invalidate session
+- `GET /api/auth/verify`: Verify session token
+
+**Flow**:
+1. Verify OAuth credentials (Google ID token or Apple identity token)
+2. Find or create user
+3. Create session
+4. Return session token
+
+#### `server/routes/users.js` - User Routes
+**Endpoints**:
+- `GET /api/users/me`: Get current user profile
+- `PUT /api/users/me`: Update user settings (identity, country)
+
+#### `server/services/matching.js` - Matching Service
+**Purpose**: Partner matching algorithm
+
+**Algorithm**:
+1. Maintains queue of waiting users
+2. Filters blocked users
+3. Checks preference compatibility
+4. Randomly selects from candidates
+5. Creates match record
+
+**Methods**:
+- `addWaitingUser(userId, socketId, preference, settings)`: Add to queue
+- `removeWaitingUser(userId)`: Remove from queue
+- `findMatch(userId, preference, settings)`: Find compatible partner
+- `getWaitingCount()`: Get queue size
+
+#### `server/socket/socketHandler.js` - WebSocket Handler
+**Purpose**: Real-time event handling
+
+**Events Handled**:
+
+**Client → Server**:
+- `authenticate`: Authenticate socket connection
+- `join-queue`: Join matching queue
+- `leave-queue`: Leave queue
+- `send-message`: Send chat message
+- `offer`: WebRTC offer
+- `answer`: WebRTC answer
+- `ice-candidate`: WebRTC ICE candidate
+- `end-match`: End current match
+- `report-user`: Report and block user
+
+**Server → Client**:
+- `match-found`: Match found notification
+- `new-message`: New chat message
+- `match-ended`: Match ended
+- `offer/answer/ice-candidate`: WebRTC signaling
+
+**State Management**:
+- Tracks active sockets
+- Maps users to sockets
+- Manages match pairs
+- Handles disconnections
+
+#### `server/middleware/auth.js` - Authentication Middleware
+**Purpose**: Verify JWT tokens for protected routes
+
+**Usage**: Applied to routes requiring authentication
+
+## 🔌 API Documentation
+
+### Authentication Endpoints
+
+#### `POST /api/auth/google`
+Authenticate with Google OAuth token.
+
+**Request Body**:
+```json
+{
+  "token": "google_id_token",
+  "identity": "male" | "female" | "multiple",
+  "country": "United States"
+}
+```
 ---
 
 ## 📁 Project Architecture
@@ -721,6 +1012,12 @@ NODE_ENV=development  # or 'production'
 
 # CORS Configuration
 CLIENT_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_client_id_here  # Required
+APPLE_CLIENT_ID=your_apple_client_id_here  # Optional
+APPLE_TEAM_ID=your_apple_team_id_here  # Required if using Apple Sign-In
+APPLE_KEY_ID=your_apple_key_id_here  # Required if using Apple Sign-In
+APPLE_PRIVATE_KEY=your_apple_private_key_here  # Required if using Apple Sign-In
+DATABASE_PATH=./data/connectsphere.db
 # Optional: Multiple allowed origins (comma-separated)
 CLIENT_URLS=http://localhost:3000,https://connectsphere.com
 
@@ -1126,6 +1423,7 @@ When reporting bugs, please include:
 
 ## 📊 Project Statistics
 
+4. **Authentication**: Google OAuth is mandatory. Apple Sign-In is optional but recommended. Both require proper client ID configuration.
 <div align="center">
 
 ### 🎉 Project Highlights
@@ -1143,6 +1441,14 @@ When reporting bugs, please include:
 | 🎮 **Interests** | 18+ interest categories |
 | 💎 **Subscription Tiers** | 3 tiers (Free, Premium, VIP) |
 
+1. **Replace Sample Videos**: Implement full WebRTC peer-to-peer video streaming
+2. **Real Gender Detection**: Integrate a proper gender detection ML model
+3. **Database Migration**: Switch to PostgreSQL for better scalability
+4. **HTTPS**: Required for WebRTC and camera access in production
+5. **STUN/TURN Servers**: Configure for NAT traversal in WebRTC
+6. **Rate Limiting**: ✅ Implemented - Rate limiting added to prevent abuse
+7. **Monitoring**: Add logging and monitoring (e.g., Winston, Sentry)
+8. **Security**: ✅ Implemented - CSRF protection via Helmet, input validation, and sanitization added
 </div>
 
 ---

@@ -93,6 +93,36 @@ const App: React.FC = () => {
     }
   }, [cleanupVerification, currentMatchId]);
 
+  const handleLogin = (user: User) => {
+    setUser(user);
+    setAuthState('authenticated');
+    showToast('Successfully logged in!', 'success');
+  };
+
+  const handleLogout = useCallback(async () => {
+    if (chatState !== 'idle') {
+      stopChat(true);
+    }
+    
+    // Disconnect socket
+    socketService.disconnect();
+    setIsSocketConnected(false);
+    
+    // Logout from backend
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    setUser(null);
+    setAuthState('unauthenticated');
+    setBlockedPartners([]);
+    setCurrentMatchId(null);
+    showToast('Logged out successfully', 'info');
+  }, [chatState, stopChat, showToast]);
+
+
   const selectNextPartner = useCallback(() => {
     const availablePartners = PARTNER_VIDEOS.filter(
       url => !blockedPartners.includes(url) && url !== currentPartner?.id
@@ -571,6 +601,71 @@ const App: React.FC = () => {
             </button>
           )}
         </div>
+      ) : authState === 'authenticated' && user ? (
+        <>
+          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeInDown">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-white tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-400">
+                Connect<span className="text-blue-400">Sphere</span>
+              </h1>
+              {chatState !== 'idle' ? (
+                 <button
+                  onClick={() => stopChat(false)}
+                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg hover:shadow-red-500/30"
+                >
+                  Stop
+                </button>
+              ) : (
+                <div className="flex items-center gap-4 animate-fadeInRight">
+                  <span className="text-gray-300 font-medium">Welcome, {user?.name}!</span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-lg hover:shadow-gray-500/30"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-hidden animate-fadeIn">
+            {chatState === 'idle' ? (
+              <SettingsScreen onStart={startChat} error={error} />
+            ) : (
+              <ChatScreen
+                chatState={chatState}
+                localStream={localStream}
+                remoteStream={remoteStream}
+                remoteVideoRef={remoteVideoRef}
+                verificationStatus={verificationStatus}
+                messages={messages}
+                reportMessage={reportMessage}
+                onNext={findNext}
+                onStop={() => stopChat(false)}
+                onSendMessage={handleSendMessage}
+                onReport={handleReport}
+                matchId={currentMatchId}
+                isPartnerTyping={isPartnerTyping}
+                onTyping={handleTyping}
+                connectionQuality={connectionQuality}
+              />
+            )}
+          </main>
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-gray-300 mb-4">Loading user data...</p>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+            >
+              Return to Login
+            </button>
+          </div>
+        </div>
+      )}
       </header>
 
       <main className="flex-1 overflow-hidden animate-fadeIn">
