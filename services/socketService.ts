@@ -130,6 +130,12 @@ class SocketService {
     }
   }
 
+  sendTyping(matchId: string, isTyping: boolean) {
+    if (this.socket) {
+      this.socket.emit('typing', { matchId, isTyping });
+    }
+  }
+
   // Event listeners
   onMatchFound(callback: (event: MatchFoundEvent) => void) {
     this.socket?.on('match-found', callback);
@@ -177,6 +183,14 @@ class SocketService {
 
   offIceCandidate(callback: (data: { candidate: RTCIceCandidateInit }) => void) {
     this.socket?.off('ice-candidate', callback);
+  }
+
+  onTyping(callback: (data: { isTyping: boolean }) => void) {
+    this.socket?.on('partner-typing', callback);
+  }
+
+  offTyping(callback: (data: { isTyping: boolean }) => void) {
+    this.socket?.off('partner-typing', callback);
   }
 
   getConnected(): boolean {

@@ -5,6 +5,11 @@ import { matchingService } from '../services/matching.js';
 const activeSockets = new Map(); // Map<socketId, userId>
 const userSockets = new Map(); // Map<userId, socketId>
 const matchSocketPairs = new Map(); // Map<matchId, { socket1, socket2 }>
+const messageRateLimits = new Map(); // Map<userId, { count, resetTime }>
+
+// Rate limiting: max 10 messages per 10 seconds per user
+const RATE_LIMIT_WINDOW = 10000; // 10 seconds
+const RATE_LIMIT_MAX_MESSAGES = 10;
 
 function authenticateSocket(socket, next) {
   const token = socket.handshake.auth.token;
@@ -150,6 +155,48 @@ export function socketHandler(socket, io) {
         return;
       }
 
+      // Rate limiting check
+      const now = Date.now();
+      const userLimit = messageRateLimits.get(socket.userId);
+      
+      if (userLimit) {
+        if (now < userLimit.resetTime) {
+          if (userLimit.count >= RATE_LIMIT_MAX_MESSAGES) {
+            callback({ error: 'Rate limit exceeded. Please slow down.' });
+            return;
+          }
+          userLimit.count += 1;
+        } else {
+          // Reset window
+          messageRateLimits.set(socket.userId, {
+            count: 1,
+            resetTime: now + RATE_LIMIT_WINDOW
+          });
+        }
+      } else {
+        messageRateLimits.set(socket.userId, {
+          count: 1,
+          resetTime: now + RATE_LIMIT_WINDOW
+        });
+      }
+
+      // Input validation and sanitization
+      if (typeof text !== 'string' || text.length > 500) {
+        callback({ error: 'Message must be a string and less than 500 characters' });
+        return;
+      }
+
+      // Basic XSS prevention - remove script tags and dangerous HTML
+      const sanitizedText = text
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .trim();
+
+      if (!sanitizedText) {
+        callback({ error: 'Message cannot be empty' });
+        return;
+      }
+
       // Verify user is part of this match
       const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
       if (!match || match.id !== matchId) {
@@ -159,7 +206,7 @@ export function socketHandler(socket, io) {
 
       // Save message
       const messageId = `msg_${uuidv4()}`;
-      messageQueries.create.run(messageId, matchId, socket.userId, text);
+      messageQueries.create.run(messageId, matchId, socket.userId, sanitizedText);
 
       // Get partner socket
       const pair = matchSocketPairs.get(matchId);
@@ -172,7 +219,7 @@ export function socketHandler(socket, io) {
       
       const message = {
         id: messageId,
-        text,
+        text: sanitizedText,
         sender: 'user',
         createdAt: new Date().toISOString()
       };
@@ -191,6 +238,34 @@ export function socketHandler(socket, io) {
     } catch (error) {
       console.error('Send message error:', error);
       callback({ error: 'Failed to send message' });
+    }
+  });
+
+  // Typing indicator
+  socket.on('typing', (data) => {
+    try {
+      if (!socket.userId) return;
+
+      const { matchId, isTyping } = data;
+
+      if (!matchId) return;
+
+      // Verify user is part of this match
+      const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);
+      if (!match || match.id !== matchId) return;
+
+      // Get partner socket
+      const pair = matchSocketPairs.get(matchId);
+      if (!pair) return;
+
+      const partnerSocketId = pair.socket1 === socket.id ? pair.socket2 : pair.socket1;
+      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
+      
+      if (partnerSocket) {
+        partnerSocket.emit('partner-typing', { isTyping });
+      }
+    } catch (error) {
+      console.error('Typing indicator error:', error);
     }
   });
 
@@ -312,6 +387,8 @@ export function socketHandler(socket, io) {
       matchingService.removeWaitingUser(socket.userId);
       activeSockets.delete(socket.id);
       userSockets.delete(socket.userId);
+      // Clean up rate limit (optional - can keep for a while)
+      // messageRateLimits.delete(socket.userId);
 
       // End any active matches
       const match = matchQueries.findActiveByUserId.get(socket.userId, socket.userId);

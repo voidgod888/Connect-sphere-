@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, SkipForward, PhoneOff, Flag } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, SkipForward, PhoneOff, Flag, HelpCircle } from 'lucide-react';
 
 interface ControlsProps {
   onNext: () => void;
@@ -60,8 +60,34 @@ export const Controls: React.FC<ControlsProps> = ({
   isCameraOff,
   isNextDisabled,
 }) => {
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   return (
-    <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
+    <div className="relative">
+      {showShortcuts && (
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 rounded-lg p-4 shadow-2xl border border-gray-700/50 z-50 min-w-[200px] animate-scaleIn">
+          <h4 className="text-sm font-semibold text-white mb-2">Keyboard Shortcuts</h4>
+          <div className="space-y-1 text-xs text-gray-300">
+            <div className="flex justify-between gap-4">
+              <span>Mute/Unmute:</span>
+              <kbd className="px-2 py-0.5 bg-gray-700 rounded">M</kbd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span>Camera Toggle:</span>
+              <kbd className="px-2 py-0.5 bg-gray-700 rounded">C</kbd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span>Find Next:</span>
+              <kbd className="px-2 py-0.5 bg-gray-700 rounded">Ctrl+Enter</kbd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span>Stop Chat:</span>
+              <kbd className="px-2 py-0.5 bg-gray-700 rounded">Esc</kbd>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-center gap-3 sm:gap-4 bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-gray-700/50 shadow-2xl animate-fadeInUp">
       <ControlButton
         onClick={onToggleMute}
         ariaLabel={isMuted ? 'Unmute microphone' : 'Mute microphone'}
@@ -103,6 +129,15 @@ export const Controls: React.FC<ControlsProps> = ({
       >
         <Flag size={24} />
       </ControlButton>
+
+      <ControlButton
+        onClick={() => setShowShortcuts(!showShortcuts)}
+        ariaLabel="Show keyboard shortcuts"
+        variant="default"
+      >
+        <HelpCircle size={20} />
+      </ControlButton>
+    </div>
     </div>
   );
 };
