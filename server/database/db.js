@@ -25,9 +25,6 @@ export function initDatabase() {
       identity TEXT CHECK(identity IN ('male', 'female', 'multiple')) NOT NULL,
       country TEXT NOT NULL DEFAULT 'Global',
       age INTEGER,
-      subscription_tier TEXT CHECK(subscription_tier IN ('free', 'premium', 'vip')) DEFAULT 'free',
-      coins INTEGER DEFAULT 0,
-      profile_boost_until DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -203,18 +200,7 @@ export function initDatabase() {
     )
   `);
 
-  // Transactions table (for coins)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS transactions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      type TEXT CHECK(type IN ('purchase', 'reward', 'spend', 'refund')),
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+  // Transactions table removed - all features are free
 
   // User Settings table
   db.exec(`
@@ -484,16 +470,7 @@ export const countryQueries = {
   `)
 };
 
-export const transactionQueries = {
-  create: db.prepare(`
-    INSERT INTO transactions (id, user_id, amount, type, description)
-    VALUES (?, ?, ?, ?, ?)
-  `),
-  
-  updateUserCoins: db.prepare(`
-    UPDATE users SET coins = coins + ? WHERE id = ?
-  `)
-};
+// Transaction queries removed - all features are free
 
 export const settingsQueries = {
   getUserSettings: db.prepare(`

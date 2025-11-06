@@ -166,39 +166,6 @@ class ApiService {
     });
   }
 
-  // Premium endpoints
-  async upgradeSubscription(tier: string): Promise<any> {
-    return this.request('/premium/upgrade', {
-      method: 'POST',
-      body: JSON.stringify({ tier }),
-    });
-  }
-
-  async purchaseCoins(amount: number): Promise<any> {
-    return this.request('/premium/coins/purchase', {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    });
-  }
-
-  async boostProfile(): Promise<any> {
-    return this.request('/premium/boost', {
-      method: 'POST',
-    });
-  }
-
-  async setUsername(username: string): Promise<any> {
-    return this.request('/premium/username', {
-      method: 'POST',
-      body: JSON.stringify({ username }),
-    });
-  }
-
-  async getTransactions(limit?: number): Promise<any> {
-    const query = limit ? `?limit=${limit}` : '';
-    return this.request(`/premium/transactions${query}`);
-  }
-
   // Settings endpoints
   async getUserSettings(): Promise<any> {
     return this.request('/settings/me');

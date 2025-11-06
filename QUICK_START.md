@@ -53,19 +53,6 @@ const stats = await apiService.getUserStats();
 <StatsPanel stats={stats} onClose={handleClose} />
 ```
 
-#### Show Premium Modal
-```typescript
-import { PremiumModal } from './components/PremiumModal';
-
-<PremiumModal
-  currentTier={user.subscriptionTier}
-  userCoins={user.coins}
-  onClose={handleClose}
-  onUpgrade={(tier) => apiService.upgradeSubscription(tier)}
-  onPurchaseCoins={(amount) => apiService.purchaseCoins(amount)}
-/>
-```
-
 #### Add Connection Quality Monitoring
 ```typescript
 import { ConnectionQualityIndicator } from './components/ConnectionQualityIndicator';
@@ -214,11 +201,11 @@ import { AdvancedSettingsPanel } from './components/AdvancedSettingsPanel';
 
 ## 💡 Pro Tips
 
-1. **Load user data on login**: Call `apiService.getUserStats()` after authentication
+1. **Load user data on start**: Call `apiService.getUserStats()` when starting the app (optional)
 2. **Monitor connection**: Start `connectionOptimization.startMonitoring()` when stream is available
 3. **Save settings**: Call `apiService.updateAdvancedSettings()` when user changes settings
 4. **Track achievements**: Backend automatically updates achievement progress
-5. **Update streak**: Daily login automatically updates streak counter
+5. **Update streak**: Daily usage automatically updates streak counter (optional)
 
 ## 🔌 API Endpoints Reference
 
@@ -226,12 +213,6 @@ import { AdvancedSettingsPanel } from './components/AdvancedSettingsPanel';
 - `GET /api/stats/me` - Get user statistics
 - `GET /api/stats/leaderboard` - Get leaderboard
 - `POST /api/stats/rate` - Rate a user
-
-### Premium
-- `POST /api/premium/upgrade` - Upgrade subscription
-- `POST /api/premium/coins/purchase` - Buy coins
-- `POST /api/premium/boost` - Boost profile
-- `POST /api/premium/username` - Set username
 
 ### Settings
 - `GET /api/settings/me` - Get settings
@@ -245,8 +226,8 @@ All components use Tailwind CSS and match the existing app design. The color sch
 - Blue/Indigo for primary actions
 - Green for success states
 - Red for errors/reports
-- Purple/Pink for premium features
-- Yellow for coins/rewards
+- Purple for special features
+- Yellow for achievements/rewards
 
 ## 🐛 Common Issues
 
@@ -257,10 +238,6 @@ All components use Tailwind CSS and match the existing app design. The color sch
 **Connection quality always poor?**
 - Check if server is accessible at `/api/health`
 - Verify WebSocket connection
-
-**Premium features not working?**
-- Verify subscription_tier in database
-- Check if coins balance is correct
 
 **Themes not applying?**
 - Ensure `data-theme` attribute is set on root element
@@ -276,10 +253,9 @@ All components use Tailwind CSS and match the existing app design. The color sch
 
 After integration, test:
 1. ✓ Stats panel opens and displays data
-2. ✓ Premium modal shows subscription tiers
-3. ✓ Connection quality indicator displays
-4. ✓ Settings save successfully
-5. ✓ Keyboard shortcuts work
+2. ✓ Connection quality indicator displays
+3. ✓ Settings save successfully
+4. ✓ Keyboard shortcuts work
 6. ✓ Leaderboard displays
 7. ✓ Enhanced reporting modal opens
 

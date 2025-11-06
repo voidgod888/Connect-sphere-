@@ -29,16 +29,14 @@ ConnectSphere is a next-generation video chat platform designed to connect peopl
 - 🎮 Meeting people who share your interests
 - 📚 Learning and cultural exchange
 
-### Why ConnectSphere?
-
-| Feature | Description |
-|---------|-------------|
-| 🎯 **Smart Matching** | AI-powered algorithm matches you with compatible partners based on interests, language, age, and location preferences |
-| 🔒 **Safety First** | Comprehensive reporting system, profanity filters, teen safety mode, and user verification |
-| 🏆 **Engaging** | Gamification with achievements, leaderboards, streaks, and ratings keeps users coming back |
-| ⚡ **Optimized** | Adaptive bitrate streaming, bandwidth saver mode, and connection quality monitoring for smooth performance |
-| 💎 **Flexible** | Free tier with essential features plus Premium and VIP subscriptions with advanced capabilities |
-| 🎨 **Beautiful** | 5 stunning themes, modern UI/UX, and fully responsive design |
+- 🎥 **HD Video Chat** - Real-time peer-to-peer video streaming
+- 🎮 **Smart Matching** - Partner matching based on interests, language, and preferences
+- 🔓 **No Login Required** - Start chatting instantly without creating an account
+- 🎁 **100% Free** - All features are completely free with no subscriptions or paywalls
+- 🛡️ **Safety First** - Comprehensive moderation, reporting, and teen safety features
+- 🌐 **Global Reach** - Connect with users from around the world
+- ⚡ **Optimized** - Adaptive bitrate streaming and connection quality monitoring
+- 🔒 **Anonymous** - Chat privately without revealing your identity
 
 ---
 
@@ -46,6 +44,12 @@ ConnectSphere is a next-generation video chat platform designed to connect peopl
 
 ### 🎯 Intelligent Matching System
 
+- **Interest-Based Matching** - Select up to 5 interests for better connections
+- **Language Preferences** - Match with users who speak your languages
+- **Age Range Filter** - Connect with users in your preferred age range (13+)
+- **Country Filtering** - Match by country or go global
+- **Queue Statistics** - Real-time queue status and estimated wait times
+- **Safe Mode** - Match only with verified users
 <table>
 <tr>
 <td width="50%">
@@ -71,6 +75,15 @@ ConnectSphere is a next-generation video chat platform designed to connect peopl
 - **Safe Mode**: Match only with verified users (Premium)
 - **Queue Statistics**: See active users, wait times, and your position
 
+### 🎁 All Features Are Free
+
+- **HD Video Quality** - High-quality video streaming for everyone
+- **Unlimited Skips** - Skip as many times as you want
+- **Custom Username** - Set your own unique username
+- **Advanced Filters** - Age range, interests, languages, and country filters
+- **No Ads** - Completely ad-free experience
+- **Priority Matching** - Fast matching for all users
+- **No Hidden Costs** - Everything is free forever
 **Smart Queue**
 - Real-time queue position tracking
 - Estimated wait time calculation
@@ -287,6 +300,11 @@ Before you begin, ensure you have the following installed and configured:
 - 🔑 **Google OAuth 2.0 Credentials** - [Get credentials](https://console.cloud.google.com/)
 - 🍎 **Apple Developer Account** - [Sign in with Apple setup](https://developer.apple.com/)
 
+- **Node.js** 18+ (for both frontend and backend)
+- **npm** or **yarn** package manager
+- **Camera and Microphone** (for video chat functionality)
+- **HTTPS** (required for camera/microphone access in browsers)
+- **Modern Browser** with WebRTC support (Chrome, Firefox, Edge, Safari)
 > **Note:** You can use mock authentication for local development without OAuth credentials.
 
 ---
@@ -365,6 +383,60 @@ concurrently "cd server && npm run dev" "npm run dev"
 
 For running on Android devices using Termux:
 
+```
+connectsphere/
+├── components/              # React UI components
+│   ├── AchievementBadge.tsx
+│   ├── AdvancedSettingsPanel.tsx
+│   ├── AgeVerification.tsx
+│   ├── BandwidthSaverMode.tsx
+│   ├── ChatHistory.tsx
+│   ├── ChatInput.tsx
+│   ├── ChatScreen.tsx
+│   ├── ConnectionQualityIndicator.tsx
+│   ├── Controls.tsx
+│   ├── EnhancedReportModal.tsx
+│   ├── InterestSelector.tsx
+│   ├── KeyboardShortcutsPanel.tsx
+│   ├── LanguageSelector.tsx
+│   ├── LeaderboardPanel.tsx
+│   ├── LoginScreen.tsx
+│   ├── NetworkDiagnostics.tsx
+│   ├── QueueStatsDisplay.tsx
+│   ├── SettingsScreen.tsx
+│   ├── StatsPanel.tsx
+│   ├── TeenSafetyMode.tsx
+│   ├── ThemeSelector.tsx
+│   ├── Toast.tsx
+│   └── VideoPlayer.tsx
+├── services/               # Frontend services
+│   ├── api.ts             # REST API client
+│   ├── connectionOptimization.ts
+│   ├── socketService.ts   # WebSocket client
+│   ├── yoloService.ts     # Gender detection service
+│   └── yolo.worker.ts     # Web Worker for ML
+├── server/                # Backend server
+│   ├── database/
+│   │   └── db.js          # SQLite database & queries
+│   ├── middleware/
+│   │   ├── auth.js        # Authentication middleware
+│   │   └── teenSafety.js  # Teen safety middleware
+│   ├── routes/
+│   │   ├── auth.js        # Authentication endpoints
+│   │   ├── settings.js    # User settings
+│   │   ├── stats.js       # Statistics & leaderboard
+│   │   └── users.js       # User management
+│   ├── services/
+│   │   ├── appleAuth.js   # Apple authentication
+│   │   └── matching.js    # Partner matching algorithm
+│   ├── socket/
+│   │   └── socketHandler.js # WebSocket handlers
+│   └── index.js           # Express server entry point
+├── App.tsx                 # Main React component
+├── index.tsx              # React DOM entry point
+├── types.ts               # TypeScript definitions
+├── constants.ts           # App constants
+└── vite.config.ts         # Vite configuration
 ```bash
 # Install Node.js in Termux
 pkg install nodejs
@@ -483,6 +555,7 @@ components/
 | `GET` | `/api/users/me` | Get current user profile | Yes |
 | `PUT` | `/api/users/me` | Update user profile | Yes |
 
+#### Stats Endpoints (Optional)
 ### 📊 Statistics Endpoints
 
 | Method | Endpoint | Description | Auth Required |
@@ -510,6 +583,7 @@ components/
 | `PUT` | `/api/settings/interests` | Update interest tags (max 5) | Yes |
 | `PUT` | `/api/settings/languages` | Update languages (max 3) | Yes |
 
+#### Settings Endpoints
 ### 🔌 WebSocket Events
 
 #### Client → Server Events
