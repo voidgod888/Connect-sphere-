@@ -24,20 +24,13 @@ class SocketService {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const token = apiService.getToken();
-      
-      if (!token) {
-        reject(new Error('No authentication token'));
-        return;
-      }
-
+      // Connect anonymously without authentication
       this.socket = io(WS_URL, {
-        auth: { token },
         transports: ['websocket', 'polling'],
       });
 
       this.socket.on('connect', () => {
-        console.log('Socket connected:', this.socket?.id);
+        console.log('Socket connected anonymously:', this.socket?.id);
         this.isConnected = true;
         resolve();
       });
@@ -50,13 +43,6 @@ class SocketService {
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
         reject(error);
-      });
-
-      // Authenticate on connection
-      this.socket.emit('authenticate', token, (response: any) => {
-        if (response.error) {
-          reject(new Error(response.error));
-        }
       });
     });
   }

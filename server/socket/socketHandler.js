@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { sessionQueries, userQueries, matchQueries, messageQueries, blockQueries, reportQueries } from '../database/db.js';
+import { matchQueries, messageQueries, blockQueries, reportQueries } from '../database/db.js';
 import { matchingService } from '../services/matching.js';
 
 const activeSockets = new Map(); // Map<socketId, userId>
@@ -11,61 +11,13 @@ const messageRateLimits = new Map(); // Map<userId, { count, resetTime }>
 const RATE_LIMIT_WINDOW = 10000; // 10 seconds
 const RATE_LIMIT_MAX_MESSAGES = 10;
 
-function authenticateSocket(socket, next) {
-  const token = socket.handshake.auth.token;
-  
-  if (!token) {
-    return next(new Error('Authentication error: No token provided'));
-  }
-
-  const session = sessionQueries.findByToken.get(token);
-  
-  if (!session) {
-    return next(new Error('Authentication error: Invalid token'));
-  }
-
-  const user = userQueries.findById.get(session.user_id);
-  
-  if (!user) {
-    return next(new Error('Authentication error: User not found'));
-  }
-
-  socket.userId = user.id;
-  socket.user = user;
-  next();
-}
-
 export function socketHandler(socket, io) {
-  // Authenticate socket connection
-  socket.on('authenticate', (token, callback) => {
-    try {
-      const session = sessionQueries.findByToken.get(token);
-      
-      if (!session) {
-        callback({ error: 'Invalid token' });
-        return;
-      }
-
-      const user = userQueries.findById.get(session.user_id);
-      
-      if (!user) {
-        callback({ error: 'User not found' });
-        return;
-      }
-
-      socket.userId = user.id;
-      socket.user = user;
-      activeSockets.set(socket.id, user.id);
-      userSockets.set(user.id, socket.id);
-
-      userQueries.updateLastSeen.run(user.id);
-
-      callback({ success: true, user });
-    } catch (error) {
-      console.error('Socket authentication error:', error);
-      callback({ error: 'Authentication failed' });
-    }
-  });
+  // Assign anonymous user ID on connection
+  socket.userId = `anon_${uuidv4()}`;
+  activeSockets.set(socket.id, socket.userId);
+  userSockets.set(socket.userId, socket.id);
+  
+  console.log(`Anonymous user connected: ${socket.userId}`);
 
   // Join waiting queue
   socket.on('join-queue', (data, callback) => {
@@ -87,11 +39,10 @@ export function socketHandler(socket, io) {
         matchingService.removeWaitingUser(socket.userId);
         matchingService.removeWaitingUser(match.userId);
 
-        // Create match record
+        // Create match ID (no database record needed)
         const matchId = `match_${uuidv4()}`;
-        matchQueries.create.run(matchId, socket.userId, match.userId);
 
-        // Store socket pair
+        // Store socket pair for in-memory tracking
         matchSocketPairs.set(matchId, {
           socket1: socket.id,
           socket2: match.socketId,
@@ -99,15 +50,12 @@ export function socketHandler(socket, io) {
           user2Id: match.userId
         });
 
-        // Notify both users
-        const user1 = userQueries.findById.get(socket.userId);
-        const user2 = userQueries.findById.get(match.userId);
-
+        // Notify both users (anonymous matching)
         socket.emit('match-found', {
           matchId,
           partner: {
-            id: user2.id,
-            name: user2.name
+            id: match.userId,
+            name: 'Stranger'
           }
         });
 
@@ -116,8 +64,8 @@ export function socketHandler(socket, io) {
           partnerSocket.emit('match-found', {
             matchId,
             partner: {
-              id: user1.id,
-              name: user1.name
+              id: socket.userId,
+              name: 'Stranger'
             }
           });
         }

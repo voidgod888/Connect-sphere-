@@ -24,14 +24,14 @@ ConnectSphere is a next-generation video chat platform that brings people togeth
 
 ### 🎯 Key Highlights
 
-- 🔐 **Secure Authentication** - Google OAuth 2.0 & Sign in with Apple
 - 🎥 **HD Video Chat** - Real-time peer-to-peer video streaming
-- 🎮 **Smart Matching** - AI-powered partner matching based on interests, language, and preferences
-- 🏆 **Gamification** - Achievements, leaderboards, and stats to keep you engaged
+- 🎮 **Smart Matching** - Partner matching based on interests, language, and preferences
+- 🔓 **No Login Required** - Start chatting instantly without creating an account
 - 🎁 **100% Free** - All features are completely free with no subscriptions or paywalls
 - 🛡️ **Safety First** - Comprehensive moderation, reporting, and teen safety features
-- 🌐 **Global Reach** - Connect with users from 200+ countries
+- 🌐 **Global Reach** - Connect with users from around the world
 - ⚡ **Optimized** - Adaptive bitrate streaming and connection quality monitoring
+- 🔒 **Anonymous** - Chat privately without revealing your identity
 
 ---
 
@@ -98,9 +98,8 @@ Before you begin, ensure you have:
 - **Node.js** 18+ (for both frontend and backend)
 - **npm** or **yarn** package manager
 - **Camera and Microphone** (for video chat functionality)
+- **HTTPS** (required for camera/microphone access in browsers)
 - **Modern Browser** with WebRTC support (Chrome, Firefox, Edge, Safari)
-- **Google OAuth Credentials** (for authentication)
-- **Apple Developer Account** (optional, for Sign in with Apple)
 
 ---
 
@@ -265,24 +264,7 @@ connectsphere/
 
 ### API Documentation
 
-#### Authentication Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/google` | Google OAuth authentication |
-| `POST` | `/api/auth/apple` | Sign in with Apple |
-| `POST` | `/api/auth/mock` | Mock auth (dev only) |
-| `POST` | `/api/auth/logout` | Logout and invalidate session |
-| `GET` | `/api/auth/verify` | Verify session token |
-
-#### User Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/users/me` | Get current user profile |
-| `PUT` | `/api/users/me` | Update user settings |
-
-#### Stats Endpoints
+#### Stats Endpoints (Optional)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

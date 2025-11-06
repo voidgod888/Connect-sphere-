@@ -201,11 +201,11 @@ import { AdvancedSettingsPanel } from './components/AdvancedSettingsPanel';
 
 ## 💡 Pro Tips
 
-1. **Load user data on login**: Call `apiService.getUserStats()` after authentication
+1. **Load user data on start**: Call `apiService.getUserStats()` when starting the app (optional)
 2. **Monitor connection**: Start `connectionOptimization.startMonitoring()` when stream is available
 3. **Save settings**: Call `apiService.updateAdvancedSettings()` when user changes settings
 4. **Track achievements**: Backend automatically updates achievement progress
-5. **Update streak**: Daily login automatically updates streak counter
+5. **Update streak**: Daily usage automatically updates streak counter (optional)
 
 ## 🔌 API Endpoints Reference
 
