@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { apiService } from '../services/apiService';
 
 interface LoginScreenProps {
   onLogin: () => void;
@@ -17,6 +18,11 @@ const GoogleIcon: React.FC = () => (
 
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+  const handleGoogleLogin = () => {
+    // Redirect to backend Google OAuth
+    window.location.href = apiService.getGoogleAuthUrl();
+  };
+
   return (
     <div className="h-full w-full flex items-center justify-center p-4 bg-gray-900">
       <div className="w-full max-w-md mx-auto text-center">
@@ -27,7 +33,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           Connect with people from around the world.
         </p>
         <button
-          onClick={onLogin}
+          onClick={handleGoogleLogin}
           className="inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-3 px-8 rounded-lg shadow-md hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50"
         >
           <GoogleIcon />

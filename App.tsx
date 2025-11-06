@@ -6,12 +6,15 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { yoloService } from './services/yoloService';
-import { PARTNER_VIDEOS } from './constants';
+import { apiService } from './services/apiService';
+import { socketService } from './services/socketService';
+import { WebRTCService } from './services/webrtcService';
 
 const App: React.FC = () => {
   // Auth State
   const [authState, setAuthState] = useState<AuthState>('unauthenticated');
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Chat State
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -25,18 +28,113 @@ const App: React.FC = () => {
   
   // Partner & Moderation State
   const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
-  const [blockedPartners, setBlockedPartners] = useState<string[]>([]);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const partnerVideoElementRef = useRef<HTMLVideoElement | null>(null);
   const verificationIntervalRef = useRef<number | null>(null);
   const verificationTimeoutRef = useRef<number | null>(null);
+  const webrtcServiceRef = useRef<WebRTCService | null>(null);
 
+  // Check authentication on mount
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await apiService.getCurrentUser();
+        if (response && response.user) {
+          setUser(response.user);
+          setAuthState('authenticated');
+          // Connect to socket after authentication
+          await socketService.connect();
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
     yoloService.loadModel().then(() => setIsModelLoading(false));
+  }, []);
+
+  // Setup socket listeners when authenticated
+  useEffect(() => {
+    if (authState !== 'authenticated' || !socketService.isConnected()) return;
+
+    // Partner found
+    socketService.onPartnerFound(async ({ partnerId, partnerName }) => {
+      console.log('Partner found:', partnerName);
+      setCurrentPartner({ id: partnerId, videoUrl: '' }); // videoUrl not needed for real WebRTC
+      setChatState('connected');
+      setMessages([]);
+
+      // Initialize WebRTC
+      if (localStreamRef.current) {
+        webrtcServiceRef.current = new WebRTCService();
+        await webrtcServiceRef.current.initialize(localStreamRef.current, partnerId);
+        
+        webrtcServiceRef.current.onRemoteStream((stream) => {
+          setRemoteStream(stream);
+        });
+
+        webrtcServiceRef.current.onConnectionStateChange((state) => {
+          console.log('WebRTC connection state:', state);
+          if (state === 'failed' || state === 'disconnected') {
+            setError('Connection to partner lost');
+          }
+        });
+
+        // Create offer to start WebRTC connection
+        await webrtcServiceRef.current.createOffer();
+      }
+    });
+
+    // Searching for partner
+    socketService.onSearching(() => {
+      setChatState('searching');
+    });
+
+    // Receive chat message
+    socketService.onChatMessage((message) => {
+      const chatMessage: ChatMessage = {
+        id: message.id,
+        text: message.text,
+        sender: 'partner',
+      };
+      setMessages(prev => [...prev, chatMessage]);
+    });
+
+    // Partner disconnected
+    socketService.onPartnerDisconnected(() => {
+      handlePartnerDisconnected();
+    });
+
+    // Socket errors
+    socketService.onError((error) => {
+      setError(error.message);
+    });
+
+    return () => {
+      socketService.removeAllListeners();
+    };
+  }, [authState]);
+
+  const handlePartnerDisconnected = useCallback(() => {
+    if (webrtcServiceRef.current) {
+      webrtcServiceRef.current.close();
+      webrtcServiceRef.current = null;
+    }
+    setRemoteStream(null);
+    setCurrentPartner(null);
+    setChatState('disconnected');
+    setMessages([]);
+    
+    // Show message briefly then return to idle
+    setTimeout(() => {
+      setChatState('idle');
+    }, 2000);
   }, []);
 
   const stopMediaTracks = (stream: MediaStream | null) => {
@@ -51,44 +149,26 @@ const App: React.FC = () => {
   }, []);
   
   const handleLogin = () => {
-    // This is a simulation of a Google Sign-In
-    setUser({ id: `user_${Date.now()}`, name: 'Demo User', email: 'demo.user@example.com' });
-    setAuthState('authenticated');
+    // This will be handled by OAuth redirect
+    // Placeholder for the component
   };
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     if (chatState !== 'idle') {
-      // Use a function form of stopChat if it's not already wrapped in useCallback
-      stopChat(true); // Pass a flag to indicate logout
+      await stopChat();
     }
+    
+    await apiService.logout();
+    socketService.disconnect();
+    
     setUser(null);
     setAuthState('unauthenticated');
-    setBlockedPartners([]); // Clear block list on logout
-  }, [chatState]);
-
-
-  const selectNextPartner = useCallback(() => {
-    const availablePartners = PARTNER_VIDEOS.filter(
-      url => !blockedPartners.includes(url) && url !== currentPartner?.id
-    );
-
-    if (availablePartners.length > 0) {
-      const randomUrl = availablePartners[Math.floor(Math.random() * availablePartners.length)];
-      return { id: randomUrl, videoUrl: randomUrl };
-    }
-    
-    // Fallback if all partners are blocked or only one is left
-    const fallbackPartners = PARTNER_VIDEOS.filter(url => url !== currentPartner?.id);
-    if (fallbackPartners.length > 0) {
-       const randomUrl = fallbackPartners[Math.floor(Math.random() * fallbackPartners.length)];
-       return { id: randomUrl, videoUrl: randomUrl };
-    }
-    
-    return null; // No partners available at all
-  }, [blockedPartners, currentPartner]);
-
+    setSettings(null);
+  }, [chatState, stopChat]);
 
   const findNext = useCallback(() => {
+    if (!settings) return;
+
     cleanupVerification();
     setVerificationStatus('idle');
     setChatState('searching');
@@ -96,46 +176,16 @@ const App: React.FC = () => {
     setMessages([]);
     setCurrentPartner(null);
 
-    const nextPartner = selectNextPartner();
-    if (!nextPartner) {
-      setError("No available partners to connect with at this time. Please try again later.");
-      setChatState('idle');
-      return;
+    // Close existing WebRTC connection
+    if (webrtcServiceRef.current) {
+      webrtcServiceRef.current.close();
+      webrtcServiceRef.current = null;
     }
 
-    setTimeout(() => {
-      setCurrentPartner(nextPartner);
-      setChatState('connected');
-    }, 2000);
-  }, [cleanupVerification, selectNextPartner]);
-
-
-  useEffect(() => {
-    if (chatState === 'connected' && currentPartner && partnerVideoElementRef.current) {
-      const videoEl = partnerVideoElementRef.current;
-      videoEl.src = currentPartner.videoUrl;
-      const playPromise = videoEl.play();
-
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          let stream;
-          if (videoEl.captureStream) {
-            stream = videoEl.captureStream();
-          } else if ((videoEl as any).mozCaptureStream) { // Firefox support
-            stream = (videoEl as any).mozCaptureStream();
-          } else {
-            console.error("captureStream API is not supported.");
-            setError("Could not establish video stream with partner.");
-            return;
-          }
-          setRemoteStream(stream);
-        }).catch(error => {
-          console.error("Error playing partner video:", error);
-          setError("Could not play partner video due to browser restrictions. Please ensure autoplay is enabled.");
-        });
-      }
-    }
-  }, [chatState, currentPartner]);
+    // Disconnect from current partner and find new one
+    socketService.disconnectPartner();
+    socketService.findPartner(settings);
+  }, [cleanupVerification, settings]);
 
   const startChat = useCallback(async (newSettings: UserSettings) => {
     setSettings(newSettings);
@@ -155,7 +205,6 @@ const App: React.FC = () => {
     }
 
     try {
-      // --- OPTIMIZATION: Request higher quality video ---
       const videoConstraints: MediaTrackConstraints = {
         width: { ideal: 1280 },
         height: { ideal: 720 },
@@ -163,65 +212,80 @@ const App: React.FC = () => {
         facingMode: 'user'
       };
       
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: videoConstraints, 
+        audio: true 
+      });
+      
       setLocalStream(stream);
       localStreamRef.current = stream;
-      findNext();
+      
+      // Find partner via socket
+      socketService.findPartner(newSettings);
     } catch (err) {
       console.error('Error accessing media devices.', err);
       let message = `Could not access camera/microphone. Please check your browser permissions.`;
       if (err instanceof DOMException) {
-          if (err.name === 'NotAllowedError') message = 'Camera and microphone access was denied. Please enable it in your browser settings.';
-          else if (err.name === 'NotFoundError') message = 'No camera or microphone was found.';
-          else if (err.name === 'OverconstrainedError') message = 'Your camera does not support the requested HD resolution. The application will not be able to start.';
+        if (err.name === 'NotAllowedError') {
+          message = 'Camera and microphone access was denied. Please enable it in your browser settings.';
+        } else if (err.name === 'NotFoundError') {
+          message = 'No camera or microphone was found.';
+        } else if (err.name === 'OverconstrainedError') {
+          message = 'Your camera does not support the requested HD resolution. The application will not be able to start.';
+        }
       }
       setError(message);
       setChatState('idle');
     }
-  }, [isModelLoading, findNext]);
+  }, [isModelLoading]);
   
-  const stopChat = useCallback((isLoggingOut = false) => {
+  const stopChat = useCallback(async () => {
     setChatState('idle');
     stopMediaTracks(localStreamRef.current);
     localStreamRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
-    if (!isLoggingOut) setSettings(null);
+    setSettings(null);
     cleanupVerification();
     setVerificationStatus('idle');
     setMessages([]);
     setCurrentPartner(null);
-    if (partnerVideoElementRef.current) {
-        partnerVideoElementRef.current.pause();
-        partnerVideoElementRef.current.src = '';
+    
+    // Close WebRTC connection
+    if (webrtcServiceRef.current) {
+      webrtcServiceRef.current.close();
+      webrtcServiceRef.current = null;
     }
+    
+    // Disconnect from socket partner
+    socketService.disconnectPartner();
   }, [cleanupVerification]);
 
   const handleReport = () => {
     if (!currentPartner) return;
-    setBlockedPartners(prev => [...new Set([...prev, currentPartner.id])]); // Avoid duplicates
-    setReportMessage('Partner has been reported and blocked for this session.');
+    
+    socketService.reportUser(currentPartner.id);
+    setReportMessage('Partner has been reported and blocked.');
     setTimeout(() => setReportMessage(null), 3500);
-    findNext();
+    
+    // The backend will disconnect the users
   };
   
   const handleSendMessage = (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !currentPartner) return;
 
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, text, sender: 'user' };
+    const userMessage: ChatMessage = { 
+      id: `user-${Date.now()}`, 
+      text, 
+      sender: 'user' 
+    };
     setMessages(prev => [...prev, userMessage]);
 
-    setTimeout(() => {
-      const replies = ["That's interesting!", "Cool.", "I see.", "Tell me more.", "Haha, nice!", "Really? Wow."];
-      const partnerMessage: ChatMessage = {
-        id: `partner-${Date.now()}`,
-        text: replies[Math.floor(Math.random() * replies.length)],
-        sender: 'partner',
-      };
-      setMessages(prev => [...prev, partnerMessage]);
-    }, 1500 + Math.random() * 1000);
+    // Send via socket to backend
+    socketService.sendChatMessage(text, currentPartner.id);
   };
   
+  // Gender verification for remote stream
   useEffect(() => {
     if (chatState === 'connected' && remoteStream && settings?.preference !== PartnerPreference.Everyone) {
       setVerificationStatus('verifying');
@@ -246,7 +310,7 @@ const App: React.FC = () => {
         }
       }, 1000);
     } else if (chatState === 'connected') {
-        setVerificationStatus('verified');
+      setVerificationStatus('verified');
     }
 
     return cleanupVerification;
@@ -256,14 +320,23 @@ const App: React.FC = () => {
     return () => {
       stopMediaTracks(localStreamRef.current);
       cleanupVerification();
+      socketService.disconnect();
     };
   }, [cleanupVerification]);
 
+  if (authLoading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-400 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen overflow-hidden bg-gray-900 flex flex-col font-sans">
-      {/* Hidden video element to generate partner streams */}
-      <video ref={partnerVideoElementRef} style={{ display: 'none' }} crossOrigin="anonymous" playsInline loop muted />
-      
       {authState === 'unauthenticated' ? (
         <LoginScreen onLogin={handleLogin} />
       ) : (
@@ -274,8 +347,8 @@ const App: React.FC = () => {
                 Connect<span className="text-blue-400">Sphere</span>
               </h1>
               {chatState !== 'idle' ? (
-                 <button
-                  onClick={() => stopChat(false)}
+                <button
+                  onClick={stopChat}
                   className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
                 >
                   Stop
@@ -307,7 +380,7 @@ const App: React.FC = () => {
                 messages={messages}
                 reportMessage={reportMessage}
                 onNext={findNext}
-                onStop={() => stopChat(false)}
+                onStop={stopChat}
                 onSendMessage={handleSendMessage}
                 onReport={handleReport}
               />

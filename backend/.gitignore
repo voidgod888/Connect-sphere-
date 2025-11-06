@@ -3,14 +3,12 @@ node_modules/
 package-lock.json
 yarn.lock
 
-# Build output
-dist/
-build/
-
 # Environment variables
 .env
 .env.local
-.env.production
+
+# Build output
+dist/
 
 # Logs
 logs
@@ -32,9 +30,3 @@ Thumbs.db
 
 # Testing
 coverage/
-
-# Vite
-.vite/
-
-# Backup files
-*.backup
