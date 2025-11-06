@@ -18,22 +18,36 @@ const GoogleIcon: React.FC = () => (
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   return (
-    <div className="h-full w-full flex items-center justify-center p-4 bg-gray-900">
-      <div className="w-full max-w-md mx-auto text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-wider mb-4">
-          Welcome to Connect<span className="text-blue-400">Sphere</span>
-        </h1>
-        <p className="text-lg text-gray-400 mb-12">
-          Connect with people from around the world.
+    <div className="h-full w-full flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
+      </div>
+
+      <div className="w-full max-w-md mx-auto text-center relative z-10 animate-fadeInUp">
+        <div className="mb-8 animate-scaleIn">
+          <h1 className="text-5xl sm:text-6xl font-bold text-white tracking-wider mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400">
+            Welcome to Connect<span className="text-blue-400 animate-pulse-glow">Sphere</span>
+          </h1>
+        </div>
+        
+        <p className="text-xl text-gray-300 mb-12 animate-fadeIn" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
+          Connect with people from around the world
         </p>
-        <button
-          onClick={onLogin}
-          className="inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-3 px-8 rounded-lg shadow-md hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50"
-        >
-          <GoogleIcon />
-          Sign in with Google
-        </button>
-        <p className="text-xs text-gray-500 mt-8">
+        
+        <div className="animate-fadeIn" style={{ animationDelay: '0.4s', animationFillMode: 'both' }}>
+          <button
+            onClick={onLogin}
+            className="group relative inline-flex items-center justify-center w-full sm:w-auto bg-white text-gray-700 font-semibold py-4 px-10 rounded-xl shadow-2xl hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 hover:shadow-blue-500/50 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 overflow-hidden"
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+            <GoogleIcon />
+            <span className="relative">Sign in with Google</span>
+          </button>
+        </div>
+        
+        <p className="text-sm text-gray-400 mt-8 animate-fadeIn" style={{ animationDelay: '0.6s', animationFillMode: 'both' }}>
           A Google account is required to ensure a safe and moderated community.
         </p>
       </div>

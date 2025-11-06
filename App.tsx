@@ -405,24 +405,31 @@ const App: React.FC = () => {
         <LoginScreen onLogin={handleLogin} />
       ) : (
         <>
-          <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm z-20">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-white tracking-wider">
-                Connect<span className="text-blue-400">Sphere</span>
+          <header className="flex-shrink-0 bg-gray-900/90 backdrop-blur-md z-20 border-b border-gray-700/50 shadow-lg animate-fadeIn">
+            <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+              <h1 className="text-3xl font-bold tracking-wider animate-scaleIn">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 animate-pulse-glow">
+                  Connect<span className="text-blue-400">Sphere</span>
+                </span>
               </h1>
               {chatState !== 'idle' ? (
                  <button
                   onClick={() => stopChat(false)}
-                  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                  className="group px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-lg shadow-red-500/50"
                 >
-                  Stop
+                  <span className="flex items-center gap-2">
+                    Stop
+                    <svg className="w-4 h-4 transform group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
                 </button>
               ) : (
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-300">Welcome, {user?.name}!</span>
+                <div className="flex items-center gap-4 animate-fadeIn">
+                  <span className="text-gray-300 font-medium">Welcome, <span className="text-blue-400">{user?.name}</span>!</span>
                   <button
                     onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    className="px-5 py-2.5 bg-gray-700/80 text-white font-semibold rounded-xl hover:bg-gray-600/80 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 backdrop-blur-sm shadow-lg"
                   >
                     Logout
                   </button>
